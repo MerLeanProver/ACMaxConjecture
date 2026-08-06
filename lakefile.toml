@@ -1,0 +1,26 @@
+name = "acmaxconjecture"
+version = "0.1.0"
+defaultTargets = ["ACMaxConjecture"]
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "master"
+
+[[lean_lib]]
+name = "ACMaxConjecture"
+
+[[lean_lib]]
+name = "Challenge"
+
+[[lean_lib]]
+name = "Solution"
+
+[[lean_lib]]
+name = "ACMaxLargeN"
+
+[[lean_lib]]
+name = "ChallengeLargeN"
+
+[[lean_lib]]
+name = "SolutionLargeN"

@@ -1,0 +1,212 @@
+# formalization.yaml (v0.3): repo-root metadata for formalization projects.
+# Spec: https://github.com/mathlib-initiative/formalization.yaml
+#
+# Deliberately NOT duplicated here (the source tree already encodes it):
+# the Lean toolchain (`lean-toolchain`), dependency pins (`lakefile.toml`,
+# `lake-manifest.json`), build status, and commit history.
+
+version: "v0.3"
+
+project:
+  name: "A complete Lean 4 formalization of the ACMAX conjecture"
+  repository: "https://github.com/MerLeanProver/ACMaxConjecture"
+  authors:
+    - "Zeru Zhu"
+    - "Jinzheng Li"
+    - "Yuanjie Ren"
+  license: "Apache-2.0"
+
+sources:
+  - title: "Maximizing algebraic connectivity for certain families of graphs"
+    authors:
+      - "Theodore Kolokolnikov"
+    id: "arXiv:1412.6147v1"
+    type: "journal article (preprint on arXiv)"
+    license: "arXiv nonexclusive-distrib/1.0"
+    journal_ref: "Linear Algebra and its Applications 471 (2015) 122-140"
+    doi: "10.48550/arXiv.1412.6147"
+    author_contacted: ""          # not recorded
+    prior_work: ""                # no prior formalization known; the conjecture had been
+                                  # checked computationally only for n <= 13 (unformalized)
+    formalized_from: >-
+      Conjecture 1.5 only. The rest of the paper is not formalized; the proof given here is
+      original work, not a transcription of an argument in the source.
+
+status:
+  scope: >-
+    Kolokolnikov's Conjecture 1.5 in full, for every n >= 4: among simple graphs on n vertices
+    with exactly 2(n-2) edges, K_{2,n-2} maximizes algebraic connectivity, and its algebraic
+    connectivity is exactly 2. The conjecture was open in general when the campaign began.
+    Both halves of the conjunction are proved (K_{2,n-2} attains 2, and every such graph is
+    bounded by 2), which together give maximality. Nothing in the scope is left as a hypothesis
+    or literature dependency. A second, standalone artifact re-proves the n >= 123 half in a
+    single Mathlib-only file.
+  sorry_count: 0
+  sorry_in_definitions: 0
+  axioms:
+    - "propext"
+    - "Classical.choice"
+    - "Quot.sound"
+  main_results:
+    - declaration: "ACMax.acmax_conjecture"
+      file: "ACMaxConjecture.lean"
+      sorry_count: 0
+      axioms:
+        - "propext"
+        - "Classical.choice"
+        - "Quot.sound"
+      comparator_config: "comparator_config.json"
+      literature_dependencies: []
+      review: "mixed"           # see `review` below: n >= 123 author-verified, 4 <= n <= 122 not
+      note: >-
+        The full conjecture, n >= 4. Import cone is the entire library (429 modules, ~163k
+        lines). Axioms confirmed by `#print axioms` and independently by the comparator's
+        whitelist check.
+    - declaration: "ACMax.acmax_conjecture_large_n"
+      file: "ACMaxLargeN.lean"
+      sorry_count: 0
+      axioms:
+        - "propext"
+        - "Classical.choice"
+        - "Quot.sound"
+      comparator_config: "comparator_config_large_n.json"
+      literature_dependencies: []
+      review: "author-verified"
+      note: >-
+        The n >= 123 half, in one self-contained ~6.7k-line file importing only Mathlib. This is
+        an extract of the canonical modules under `ACMaxConjecture/` with everything unreachable
+        from the theorem pruned away, then reorganized into seven parts -- a second reading of
+        one proof, not an independent second proof. What it does buy is build independence: it
+        can be checked without any of `ACMaxConjecture/`.
+
+automation:
+  methods:
+    - method: "autonomous"
+      models: []                  # not instrumented; see notes
+      framework: "Claude Code"
+      tool_setup: >-
+        MerLean (https://github.com/MerLeanProver/MerLean): an autonomous Lean 4 + Mathlib
+        theorem-proving system built as Claude Code skills and subagents over a plan graph.
+        The goal is decomposed into a dependency graph of lemmas; each node is proved in its own
+        file by a dedicated `compile-fix` subagent (up to 4 in parallel, never two on the same
+        file); an `explore` subagent researches subtopics read-only. The plan graph is a Mem0 2.x
+        graph store with embedding-based retrieval, keeping dependency edges equal to the real
+        Lean dependency graph. Every landed statement was re-verified by a fresh kernel-level
+        `#print axioms` check before being banked.
+      cost:
+        wall_time: >-
+          ~3 weeks end to end: first plan nodes 2026-06-26; full conjecture kernel-checked
+          2026-07-14. Of this, 64.6 agent-hours are directly instrumented (see notes).
+        spend_usd: ""             # not recorded; see notes
+        hardware: "API-only (Claude Code subscription); local 4-core / 15 GB machine for Lean builds"
+      prompting_notes: >-
+        Driven through MerLean's skill interface rather than ad-hoc prompts: a goal is handed to
+        the orchestrator, which owns decomposition and plan edits in the main context, and
+        dispatches per-file proof work to subagents that return only short summaries.
+  spend_usd: ""                   # not recorded; see notes
+  notes: >-
+    Instrumentation is partial and the totals below should be read as a lower bound. Token
+    accounting was added to the plan store around 2026-07-07, part-way through the campaign, so
+    the main plan store (486 nodes, 2026-06-26 to 2026-07-10) carries no token data. The two
+    fully instrumented sub-stores record 214 subagent runs, 24.8M tokens and 64.6 agent-hours,
+    with a median of 115k tokens / 14.5 minutes per run. Model identifiers were never recorded
+    per-run, so `models` is left empty rather than guessed; the work predates this report.
+    Dollar spend is likewise not recorded: Claude Code usage was subscription-based, and the
+    plan graph additionally used the OpenAI API for embeddings and bookkeeping.
+    Every numeric certificate (counting rows, Moore cells, band constants) was cross-checked by
+    exact big-integer enumeration outside Lean before being formalized.
+
+fidelity:
+  divergences: >-
+    (1) DEFINITION OF THE INVARIANT. `ACMax.algConn` is defined directly as the second-smallest
+    eigenvalue of the Laplacian L(G) = D(G) - A(G), via Mathlib's sorted spectrum `eigenvalues₀`
+    at index `card V - 2` (that sequence is antitone, so this index is genuinely the
+    second-smallest). The Courant-Fischer variational characterization is not the definition; it
+    is proved about the definition, as two bridge theorems -- an upper bound from any test vector
+    orthogonal to the constant vector (`Spectral/RayleighUpper.lean`, `Spectral/TestVector.lean`)
+    and the matching lower bound used for the equality clause (`Spectral/RayleighLower.lean`).
+    Readers checking faithfulness should check that bridge, since every `algConn <= 2` certificate
+    in the development is a test vector and so goes through it.
+    (2) VERTEX TYPE. The statement is over `Fin n` rather than an arbitrary finite type of
+    cardinality n. This is a specialization, not a weakening, for a statement quantified over all
+    graphs on n vertices.
+    (3) TRUNCATED SUBTRACTION. The edge count is `G.edgeFinset.card = 2 * (n - 2)` in `ℕ`, so the
+    subtraction truncates; under the hypothesis `4 <= n` this agrees with the source's 2(n-2).
+    (4) REDUNDANT INSTANCE. `[Nonempty (Fin n)]` appears as an instance argument although it
+    follows from `4 <= n`. It is carried to keep `algConn` (which requires `Nonempty V`)
+    typecheckable at the statement level, and does not weaken the theorem.
+    (5) NO GENERALIZATION BEYOND THE SOURCE. Nothing is proved in greater generality than
+    Conjecture 1.5, and no hypothesis of the conjecture is strengthened.
+
+review:
+  status: "author-verified (n >= 123); self-assessed (4 <= n <= 122)"
+  reviewers:
+    - "Zeru Zhu"
+    - "Jinzheng Li"
+    - "Yuanjie Ren"
+  human_reviewed_scope: >-
+    The n >= 123 argument has been read and verified by the authors. That is the mathematical
+    content written up in the accompanying paper ("The Large-Order Case"), and it is the same
+    argument in both places it appears: as the standalone `ACMaxLargeN.lean`, and as the library's
+    `Counting/V9DischargeSharp.lean` route via `starved_dead_ge_123`.
+  not_human_reviewed_scope: >-
+    The finite range 4 <= n <= 122 has NOT been human-reviewed: the per-order proofs in
+    `SmallCases/` (n <= 20), the Moore-extremal islands in `Islands/`, and the kernel `decide`
+    band in `Band/` (64 <= n <= 122). This is the bulk of the artifact by size -- `SmallCases/`
+    alone is 149,515 of ~163k lines (91%) -- and it rests on the mechanical guarantees below
+    rather than on human reading.
+  notes: >-
+    The two halves are labelled separately because they carry genuinely different assurance.
+    For n >= 123 a human has checked the mathematics. For 4 <= n <= 122 nobody has, and
+    `self-assessed` is the honest label there. What HAS been done for both is mechanical, and is
+    stronger than usual on the proof-checking axis while saying nothing about the faithfulness
+    axis:
+    (a) the whole library is `sorry`-free -- Lean emits a warning for every declaration that uses
+    `sorry`, and a full build emits exactly two, both the intentional `sorry` in the comparator
+    challenge files;
+    (b) `#print axioms` on both main results yields exactly [propext, Classical.choice,
+    Quot.sound];
+    (c) both results were replayed through leanprover/comparator, which checks statement equality
+    at the `lean4export` level between an independently-stated challenge file and the solution,
+    enforces the axiom whitelist, and re-checks the exported proof closure through TWO independent
+    kernels -- the Lean default kernel and nanoda (Rust). Both kernels accept both configs.
+    The residual risk this leaves is exactly the one a reader should focus on: whether
+    `ACMax.acmax_conjecture` faithfully renders Kolokolnikov's Conjecture 1.5. That is a question
+    about the statement and the `algConn` definition, not about the proof -- and it is unaffected
+    by the n >= 123 human review, since that review concerns the argument rather than the
+    top-level statement.
+
+alignment:
+  namespace: "ACMax"
+  statements:
+    - source: "Conjecture 1.5"
+      lean: "ACMax.acmax_conjecture"
+      module: "ACMaxConjecture.lean"
+      status: "proved"
+      note: "The conjecture in full, for all n >= 4. This is the canonical statement."
+    - source: "Conjecture 1.5, restricted to n >= 123"
+      lean: "ACMax.acmax_conjecture_large_n"
+      module: "ACMaxLargeN.lean"
+      status: "proved"
+      note: "Standalone single-file artifact importing only Mathlib."
+    - source: "Algebraic connectivity (the invariant the conjecture is about)"
+      lean: "ACMax.algConn"
+      module: "ACMaxConjecture/Spectral/AlgConn.lean"
+      status: "proved"
+      note: "Definition. See fidelity.divergences (1)."
+    - source: "Conjecture 1.5, equality half: lambda_2(K_{2,n-2}) = 2"
+      lean: "ACMax.algConn_completeBipartite_two"
+      module: "ACMaxConjecture/Spectral/AlgConnK2.lean"
+      status: "proved"
+    - source: "Courant-Fischer upper bound (used by every certificate in the development)"
+      lean: "ACMax.algConn_le_two_of_testvector"
+      module: "ACMaxConjecture/Spectral/TestVector.lean"
+      status: "proved"
+      note: "Not a statement of the source; the bridge from the eigenvalue definition to the
+             variational bound the proof actually uses."
+
+acknowledgements: >-
+  Built on Lean 4 and Mathlib. The formalization was produced by MerLean
+  (https://github.com/MerLeanProver/MerLean), which itself builds on Mem0 and LeanSearch v2.
+  Independent verification uses leanprover/comparator, lean4export, landrun, and the nanoda
+  kernel (https://github.com/ammkrn/nanoda_lib). The conjecture is due to Theodore Kolokolnikov.
