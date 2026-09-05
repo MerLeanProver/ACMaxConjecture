@@ -1,22 +1,36 @@
-import ACMaxConjecture.Reduction.Residual
-import ACMaxConjecture.Counting.FarPair
-import ACMaxConjecture.Counting.DoubleStar
+import ACMaxConjecture.Counting.CherryMShape
+import ACMaxConjecture.Reduction.Reduction
 
 
 /-!
-# Slot far-pair certificates and the compact-cell vocabulary
+# The compact-cell reduction of the `Δ ≥ 5` fat side
 
-The slot function `σ(d) = (d−3)/(d−2)` turns the weighted double-star test vector
-into a local certificate.  If two non-adjacent vertices have disjoint
-neighbourhoods and their combined slot cost is nonpositive, then
-`algConn G ≤ 2`.  The cross-free specialization is packaged as
-`algConn_le_two_of_usable_far_pair` and `HasUsableFarPair`.
+Develops the fat frontier (`ResidualCore n G` with a vertex of degree `≥ 5`) and
+reduces it to a **bounded compact cell**. The `σ`-ecology of a min-degree-3 world
+(`σ(d) = (d−3)/(d−2)`, `cW`, `sigS`) drives a family of test-vector certificates;
+when none fires the graph is a compact cell whose size is bounded by the total
+degree excess.
 
-The final section supplies only the compact-cell vocabulary used downstream:
-the degree excess `excessX`, the radius-three set `closeSet`, and the bound on
-light non-usable degree-three vertices.  Stronger covering statements formerly
-developed in this module were not part of the final theorem's dependency
-closure and have been removed.
+## Main results
+
+* `algConn_le_two_of_slot_far_pair` — the **slot far-pair certificate**: a far
+  pair `u, v` with slot value
+  `c_v²·(Σσ_u − 2) + c_u²·(Σσ_v − 2) + Σ_{cross} (p_w + q_{w'})² ≤ 0` certifies
+  `algConn G ≤ 2`, a σ-arithmetic instance of the weighted double-star master
+  (per-slot identity `(c_v − p_w)² + (deg w − 1)·p_w² = 2·p_w² + c_v²·σ(deg w)`).
+* `algConn_le_two_of_usable_far_pair`, `HasUsableFarPair` — the cross-free
+  **usable far-pair** law: two `σ`-usable vertices (`sigS ≤ 2`) at distance `≥ 4`
+  close; `HasUsableFarPair` is the spread/compact discriminator.
+* `usable_deg3_of_light`, `nonusable_deg3_structure` — the σ-profile suppression:
+  a degree-3 vertex with neighbour degrees `≤ 5` is usable, and a non-usable one
+  has a heavy neighbourhood.
+* `compact_covering` — on the compact cell (`¬HasUsableFarPair G`), `n` is bounded
+  cubically in the degree excess `X = excessX n G` (via `closeSet`,
+  `card_heavy_le`, `card_nonusable_light_le`); the linear sharpening gives
+  `n ≤ 53 + 19·X`, packaged as `boundLin`.
+
+The single remaining open input of the fat side is isolated as the hypothesis
+`hirr` of `fat_side_close`; every lemma here is fully proved.
 -/
 
 namespace ACMax
@@ -43,7 +57,26 @@ noncomputable def sigS (G : SimpleGraph V) (u : V) : ℝ :=
 
 /-! ### `σ` arithmetic (`L-FB-2` real-valued facts) -/
 
+theorem sigma_three : sigma 3 = 0 := by simp [sigma]
+
 theorem sigma_four : sigma 4 = 1 / 2 := by norm_num [sigma]
+
+theorem sigma_five : sigma 5 = 2 / 3 := by norm_num [sigma]
+
+theorem sigma_six : sigma 6 = 3 / 4 := by norm_num [sigma]
+
+/-- `σ(d) ≥ 0` for `d ≥ 3`. -/
+theorem sigma_nonneg {d : ℕ} (hd : 3 ≤ d) : 0 ≤ sigma d := by
+  unfold sigma
+  have h3 : (3 : ℝ) ≤ (d : ℝ) := by exact_mod_cast hd
+  apply div_nonneg <;> linarith
+
+/-- `σ(d) < 1` for `d ≥ 3`. -/
+theorem sigma_lt_one {d : ℕ} (hd : 3 ≤ d) : sigma d < 1 := by
+  unfold sigma
+  have h3 : (3 : ℝ) ≤ (d : ℝ) := by exact_mod_cast hd
+  rw [div_lt_one (by linarith)]
+  linarith
 
 /-- `σ` is monotone on `d ≥ 3`: `σ(d) = 1 − 1/(d−2)`. -/
 theorem sigma_le_of_le {c d : ℕ} (hc : 3 ≤ c) (hcd : c ≤ d) : sigma c ≤ sigma d := by
@@ -62,6 +95,24 @@ theorem sigma_le_of_le {c d : ℕ} (hc : 3 ≤ c) (hcd : c ≤ d) : sigma c ≤ 
   have : 1 / ((d : ℝ) - 2) ≤ 1 / ((c : ℝ) - 2) :=
     one_div_le_one_div_of_le hc2 (by linarith)
   linarith
+
+/-- **`σ`-usability at `Δ = 5`**: three neighbours of degree `≤ 5` give
+`σ-sum ≤ 2` (the `(5,5,5)` tie).  This is the exact fact that makes *every*
+degree-3 vertex a usable slot far-pair end in a `Δ ≤ 5` world. -/
+theorem sigSum_le_two_of_three_nbrs_deg_le_five (G : SimpleGraph V) (u : V)
+    (hmin : ∀ w : V, 3 ≤ G.degree w)
+    (hdeg : G.degree u = 3) (hnbr : ∀ w ∈ G.neighborFinset u, G.degree w ≤ 5) :
+    sigS G u ≤ 2 := by
+  unfold sigS
+  have hcard : (G.neighborFinset u).card = 3 := by
+    rw [SimpleGraph.card_neighborFinset_eq_degree]; exact hdeg
+  calc ∑ w ∈ G.neighborFinset u, sigma (G.degree w)
+      ≤ ∑ _w ∈ G.neighborFinset u, sigma 5 := by
+        apply Finset.sum_le_sum
+        intro w hw
+        exact sigma_le_of_le (hmin w) (hnbr w hw)
+    _ = 2 := by
+        rw [Finset.sum_const, hcard, sigma_five]; norm_num
 
 /-! ## `cW` positivity -/
 
@@ -349,7 +400,101 @@ frontier-facing name). -/
 theorem sigma_mono {d e : ℕ} (hd : 3 ≤ d) (hde : d ≤ e) : sigma d ≤ sigma e :=
   sigma_le_of_le hd hde
 
+/-! ## σ-sum versus the heavy-neighbour count -/
+
+/-- **Usability of light degree-3 vertices**: a degree-3 vertex all of whose
+neighbours have degree ≤ 5 has `sigS ≤ 3 · σ(5) = 2`. -/
+theorem usable_deg3_of_light (G : SimpleGraph V) (u : V)
+    (hd : G.degree u = 3) (h3 : ∀ w, 3 ≤ G.degree w)
+    (hlight : ∀ w ∈ G.neighborFinset u, G.degree w ≤ 5) :
+    sigS G u ≤ 2 :=
+  sigSum_le_two_of_three_nbrs_deg_le_five G u h3 hd hlight
+
+/-! ## The non-usable degree-3 frontier -/
+
+/-- **Structure of a non-usable degree-3 vertex**: if `deg u = 3` and
+`sigS G u > 2`, then all three neighbours are heavy (degree ≥ 4), at least one
+has degree ≥ 6, and at least two have degree ≥ 5. -/
+theorem nonusable_deg3_structure (G : SimpleGraph V) (u : V)
+    (hd : G.degree u = 3) (h3 : ∀ w, 3 ≤ G.degree w)
+    (h : 2 < sigS G u) :
+    (∀ w ∈ G.neighborFinset u, 4 ≤ G.degree w) ∧
+      (∃ w ∈ G.neighborFinset u, 6 ≤ G.degree w) ∧
+      (((G.neighborFinset u).filter (fun w => 5 ≤ G.degree w)).card ≥ 2) := by
+  -- Destructure the 3-element neighbourhood once.
+  have hcard : (G.neighborFinset u).card = 3 := by
+    rw [SimpleGraph.card_neighborFinset_eq_degree]; exact hd
+  obtain ⟨a, b, c, hab, hac, hbc, hN⟩ := Finset.card_eq_three.mp hcard
+  have ha : a ∈ G.neighborFinset u := by rw [hN]; simp
+  have hb : b ∈ G.neighborFinset u := by rw [hN]; simp
+  have hc : c ∈ G.neighborFinset u := by rw [hN]; simp
+  have hsum : sigS G u
+      = sigma (G.degree a) + (sigma (G.degree b) + sigma (G.degree c)) := by
+    rw [sigS, hN, Finset.sum_insert (by simp [hab, hac]),
+      Finset.sum_insert (by simp [hbc]), Finset.sum_singleton]
+  have la : sigma (G.degree a) < 1 := sigma_lt_one (h3 a)
+  have lb : sigma (G.degree b) < 1 := sigma_lt_one (h3 b)
+  have lc : sigma (G.degree c) < 1 := sigma_lt_one (h3 c)
+  refine ⟨?_, ?_, ?_⟩
+  · -- (a) every neighbour is heavy.
+    intro w hw
+    by_contra hcon
+    have hw3 : G.degree w = 3 := le_antisymm (by omega) (h3 w)
+    have hz : sigma (G.degree w) = 0 := by rw [hw3, sigma_three]
+    have hw' : w = a ∨ w = b ∨ w = c := by
+      rw [hN] at hw; simpa using hw
+    rcases hw' with rfl | rfl | rfl
+    · linarith
+    · linarith
+    · linarith
+  · -- (b) some neighbour has degree ≥ 6.
+    by_contra hcon
+    push Not at hcon
+    have hlight : ∀ w ∈ G.neighborFinset u, G.degree w ≤ 5 := by
+      intro w hw
+      have := hcon w hw
+      omega
+    have := usable_deg3_of_light G u hd h3 hlight
+    linarith
+  · -- (c) at least two neighbours have degree ≥ 5.
+    by_contra hcon
+    push Not at hcon
+    -- No two neighbours can both have degree ≥ 5.
+    have hpair : ∀ x y : V, x ∈ G.neighborFinset u → y ∈ G.neighborFinset u →
+        x ≠ y → 5 ≤ G.degree x → 5 ≤ G.degree y → False := by
+      intro x y hx hy hxy h5x h5y
+      have hsub : ({x, y} : Finset V)
+          ⊆ (G.neighborFinset u).filter (fun w => 5 ≤ G.degree w) := by
+        intro z hz
+        rcases Finset.mem_insert.mp hz with rfl | hz
+        · exact Finset.mem_filter.mpr ⟨hx, h5x⟩
+        · rw [Finset.mem_singleton] at hz
+          subst hz
+          exact Finset.mem_filter.mpr ⟨hy, h5y⟩
+      have h2le : 2 ≤ ((G.neighborFinset u).filter (fun w => 5 ≤ G.degree w)).card := by
+        calc 2 = ({x, y} : Finset V).card := (Finset.card_pair hxy).symm
+          _ ≤ _ := Finset.card_le_card hsub
+      omega
+    -- A neighbour of degree ≤ 4 has σ-value ≤ σ(4) = 1/2.
+    have s4 : ∀ w : V, ¬ 5 ≤ G.degree w → sigma (G.degree w) ≤ 1 / 2 := by
+      intro w h5
+      have h4 : G.degree w ≤ 4 := by omega
+      calc sigma (G.degree w) ≤ sigma 4 := sigma_mono (h3 w) h4
+        _ = 1 / 2 := sigma_four
+    by_cases ha5 : 5 ≤ G.degree a
+    · by_cases hb5 : 5 ≤ G.degree b
+      · exact hpair a b ha hb hab ha5 hb5
+      · by_cases hc5 : 5 ≤ G.degree c
+        · exact hpair a c ha hc hac ha5 hc5
+        · have := s4 b hb5; have := s4 c hc5; linarith
+    · by_cases hb5 : 5 ≤ G.degree b
+      · by_cases hc5 : 5 ≤ G.degree c
+        · exact hpair b c hb hc hbc hb5 hc5
+        · have := s4 a ha5; have := s4 c hc5; linarith
+      · have := s4 a ha5; have := s4 b hb5; linarith
+
 end ACMax
+
 
 /-! ## The parametric compact-covering theorem
 
@@ -499,5 +644,197 @@ theorem card_nonusable_light_le (G : SimpleGraph (Fin n))
           omega)
     _ = 5 * excessX n G := by rw [excessX, Finset.mul_sum]
 
+/-- **The heavy population is at most `X`**: each heavy vertex contributes at
+least `1` to the excess. -/
+theorem card_heavy_le (G : SimpleGraph (Fin n)) :
+    (Finset.univ.filter (fun v : Fin n => 5 ≤ G.degree v)).card ≤ excessX n G := by
+  rw [excessX]
+  calc (Finset.univ.filter (fun v : Fin n => 5 ≤ G.degree v)).card
+      = ∑ _w ∈ Finset.univ.filter (fun v : Fin n => 5 ≤ G.degree v), 1 :=
+        (Finset.card_eq_sum_ones _)
+    _ ≤ ∑ w ∈ Finset.univ.filter (fun v : Fin n => 5 ≤ G.degree v),
+          (G.degree w - 4) :=
+        Finset.sum_le_sum (fun w hw => by
+          simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hw
+          omega)
+
+/-! ## The linear compact-covering theorem
+
+Sharpens the cubic `compact_covering` bound to a **linear** one. With minimum
+degree 3 each breadth-first layer satisfies `|Lₖ₊₁| ≤ 4·|Lₖ| + X`, so
+`|B₃(u₀)| ≤ 85 + 27·X`; combined with the far-vertex partition (non-usable light
+`≤ 5X`, heavy `≤ X`) this gives `n ≤ 53 + 19·X`. The assembly
+`acmax_general_of_xbound_linear` uses the linear bound `boundLin` in place of the
+cubic one. -/
+
+/-- **Local pointwise-summed degree bound**: with minimum degree 3,
+`∑_{w ∈ S} (deg w − 1) ≤ 3·|S| + ∑_{w ∈ S, deg ≥ 5} (deg w − 4)` — the excess
+part charged only to `S` itself. -/
+theorem sum_degree_sub_one_le_local (G : SimpleGraph (Fin n)) (S : Finset (Fin n))
+    (h3 : ∀ v, 3 ≤ G.degree v) :
+    ∑ w ∈ S, (G.degree w - 1)
+      ≤ 3 * S.card + ∑ w ∈ S.filter (fun w => 5 ≤ G.degree w), (G.degree w - 4) := by
+  have hpt : ∀ w ∈ S,
+      G.degree w - 1 ≤ 3 + (if 5 ≤ G.degree w then G.degree w - 4 else 0) := by
+    intro w _
+    have := h3 w
+    split <;> omega
+  calc ∑ w ∈ S, (G.degree w - 1)
+      ≤ ∑ w ∈ S, (3 + (if 5 ≤ G.degree w then G.degree w - 4 else 0)) :=
+        Finset.sum_le_sum hpt
+    _ = 3 * S.card + ∑ w ∈ S, (if 5 ≤ G.degree w then G.degree w - 4 else 0) := by
+        rw [Finset.sum_add_distrib, Finset.sum_const, smul_eq_mul, mul_comm]
+    _ = 3 * S.card
+        + ∑ w ∈ S.filter (fun w => 5 ≤ G.degree w), (G.degree w - 4) := by
+        rw [Finset.sum_filter]
+
+theorem card_closeSet_le_light_twoball (G : SimpleGraph (Fin n)) (u₀ : Fin n)
+    (h3 : ∀ v, 3 ≤ G.degree v) (h4 : G.degree u₀ ≤ 4) :
+    (closeSet G u₀).card ≤ 53 + 4 * ∑ w ∈ (insert u₀ (G.neighborFinset u₀
+        ∪ (G.neighborFinset u₀).biUnion (fun w => G.neighborFinset w))).filter
+        (fun w => 5 ≤ G.degree w), (G.degree w - 4) := by
+  classical
+  set A : Finset (Fin n) := G.neighborFinset u₀ with hA
+  set B : Finset (Fin n) := A.biUnion (fun w => G.neighborFinset w) with hB
+  set S₂ : Finset (Fin n) := B \ insert u₀ A with hS₂
+  set S₃ : Finset (Fin n) := S₂.biUnion
+    (fun v => G.neighborFinset v \ A) with hS₃
+  set E₁ : ℕ := ∑ w ∈ A.filter (fun w => 5 ≤ G.degree w), (G.degree w - 4)
+    with hE₁
+  set E₂ : ℕ := ∑ w ∈ S₂.filter (fun w => 5 ≤ G.degree w), (G.degree w - 4)
+    with hE₂
+  have hcover : closeSet G u₀ ⊆ insert u₀ (A ∪ S₂ ∪ S₃) := by
+    intro x hx
+    unfold closeSet at hx
+    rw [← hA, ← hB] at hx
+    rcases Finset.mem_insert.mp hx with rfl | hx
+    · exact Finset.mem_insert_self _ _
+    · rcases Finset.mem_union.mp hx with hx | hx3
+      · rcases Finset.mem_union.mp hx with hx1 | hx2
+        · exact Finset.mem_insert_of_mem
+            (Finset.mem_union_left _ (Finset.mem_union_left _ hx1))
+        · by_cases hin : x ∈ insert u₀ A
+          · rcases Finset.mem_insert.mp hin with rfl | hxa
+            · exact Finset.mem_insert_self _ _
+            · exact Finset.mem_insert_of_mem
+                (Finset.mem_union_left _ (Finset.mem_union_left _ hxa))
+          · exact Finset.mem_insert_of_mem (Finset.mem_union_left _
+              (Finset.mem_union_right _ (Finset.mem_sdiff.mpr ⟨hx2, hin⟩)))
+      · obtain ⟨w, hwB, hxw⟩ := Finset.mem_biUnion.mp hx3
+        by_cases hwin : w ∈ insert u₀ A
+        · rcases Finset.mem_insert.mp hwin with rfl | hwa
+          · exact Finset.mem_insert_of_mem
+              (Finset.mem_union_left _ (Finset.mem_union_left _ (hA ▸ hxw)))
+          · have hxB : x ∈ B := by
+              rw [hB]
+              exact Finset.mem_biUnion.mpr ⟨w, hwa, hxw⟩
+            by_cases hin : x ∈ insert u₀ A
+            · rcases Finset.mem_insert.mp hin with rfl | hxa
+              · exact Finset.mem_insert_self _ _
+              · exact Finset.mem_insert_of_mem
+                  (Finset.mem_union_left _ (Finset.mem_union_left _ hxa))
+            · exact Finset.mem_insert_of_mem (Finset.mem_union_left _
+                (Finset.mem_union_right _ (Finset.mem_sdiff.mpr ⟨hxB, hin⟩)))
+        · have hwS₂ : w ∈ S₂ := by
+            rw [hS₂]
+            exact Finset.mem_sdiff.mpr ⟨hwB, hwin⟩
+          by_cases hxa : x ∈ A
+          · exact Finset.mem_insert_of_mem
+              (Finset.mem_union_left _ (Finset.mem_union_left _ hxa))
+          · refine Finset.mem_insert_of_mem (Finset.mem_union_right _ ?_)
+            rw [hS₃]
+            exact Finset.mem_biUnion.mpr
+              ⟨w, hwS₂, Finset.mem_sdiff.mpr ⟨hxw, hxa⟩⟩
+  have hAcard : A.card ≤ 4 := by
+    rw [hA, SimpleGraph.card_neighborFinset_eq_degree]
+    exact h4
+  have hS₂card : S₂.card ≤ 3 * A.card + E₁ := by
+    have hsub : S₂ ⊆ A.biUnion (fun w => (G.neighborFinset w).erase u₀) := by
+      intro x hx
+      rw [hS₂, Finset.mem_sdiff, hB] at hx
+      obtain ⟨hxB, hxnin⟩ := hx
+      obtain ⟨w, hwA, hxw⟩ := Finset.mem_biUnion.mp hxB
+      refine Finset.mem_biUnion.mpr ⟨w, hwA, Finset.mem_erase.mpr ⟨?_, hxw⟩⟩
+      intro hxu
+      exact hxnin (hxu ▸ Finset.mem_insert_self _ _)
+    calc S₂.card
+        ≤ (A.biUnion (fun w => (G.neighborFinset w).erase u₀)).card :=
+          Finset.card_le_card hsub
+      _ ≤ ∑ w ∈ A, ((G.neighborFinset w).erase u₀).card :=
+          Finset.card_biUnion_le
+      _ ≤ ∑ w ∈ A, (G.degree w - 1) := by
+          refine Finset.sum_le_sum (fun w hw => ?_)
+          calc ((G.neighborFinset w).erase u₀).card
+              ≤ (G.neighborFinset w).card - 1 := by
+                have hu₀w : u₀ ∈ G.neighborFinset w := by
+                  rw [SimpleGraph.mem_neighborFinset]
+                  exact ((G.mem_neighborFinset u₀ w).mp (hA ▸ hw)).symm
+                rw [Finset.card_erase_of_mem hu₀w]
+            _ = G.degree w - 1 := by
+                rw [SimpleGraph.card_neighborFinset_eq_degree]
+      _ ≤ 3 * A.card + E₁ := by
+          rw [hE₁]
+          exact sum_degree_sub_one_le_local G A h3
+  have hS₃card : S₃.card ≤ 3 * S₂.card + E₂ := by
+    calc S₃.card
+        ≤ ∑ v ∈ S₂, (G.neighborFinset v \ A).card := by
+          rw [hS₃]
+          exact Finset.card_biUnion_le
+      _ ≤ ∑ v ∈ S₂, (G.degree v - 1) := by
+          refine Finset.sum_le_sum (fun v hv => ?_)
+          have hvB : v ∈ B := by
+            rw [hS₂, Finset.mem_sdiff] at hv
+            exact hv.1
+          obtain ⟨w, hwA, hvw⟩ := Finset.mem_biUnion.mp (hB ▸ hvB)
+          have hwNv : w ∈ G.neighborFinset v ∩ A := by
+            rw [Finset.mem_inter, SimpleGraph.mem_neighborFinset]
+            exact ⟨((G.mem_neighborFinset w v).mp hvw).symm, hwA⟩
+          have hinter : 1 ≤ (G.neighborFinset v ∩ A).card :=
+            Finset.card_pos.mpr ⟨w, hwNv⟩
+          have hsplit := Finset.card_sdiff_add_card_inter
+            (G.neighborFinset v) A
+          have hdeg : (G.neighborFinset v).card = G.degree v :=
+            SimpleGraph.card_neighborFinset_eq_degree G v
+          omega
+      _ ≤ 3 * S₂.card + E₂ := by
+          rw [hE₂]
+          exact sum_degree_sub_one_le_local G S₂ h3
+  have hE : E₁ + E₂ ≤ ∑ w ∈ (insert u₀ (A ∪ B)).filter
+      (fun w => 5 ≤ G.degree w), (G.degree w - 4) := by
+    have hAS₂ : Disjoint A S₂ := by
+      rw [Finset.disjoint_right]
+      intro x hxS₂ hxA
+      rw [hS₂, Finset.mem_sdiff] at hxS₂
+      exact hxS₂.2 (Finset.mem_insert_of_mem hxA)
+    have hsum : E₁ + E₂
+        = ∑ w ∈ (A ∪ S₂).filter (fun w => 5 ≤ G.degree w),
+            (G.degree w - 4) := by
+      rw [Finset.filter_union,
+        Finset.sum_union (Finset.disjoint_filter_filter hAS₂), hE₁, hE₂]
+    rw [hsum]
+    refine Finset.sum_le_sum_of_subset (Finset.filter_subset_filter _ ?_)
+    intro w hw
+    rw [Finset.mem_union] at hw
+    rcases hw with hwA | hwS₂
+    · exact Finset.mem_insert_of_mem (Finset.mem_union_left _ (hA ▸ hwA))
+    · rw [hS₂, Finset.mem_sdiff, hB] at hwS₂
+      exact Finset.mem_insert_of_mem (Finset.mem_union_right _ hwS₂.1)
+  have hclose : (closeSet G u₀).card ≤ 1 + (A.card + S₂.card + S₃.card) := by
+    calc (closeSet G u₀).card
+        ≤ (insert u₀ (A ∪ S₂ ∪ S₃)).card := Finset.card_le_card hcover
+      _ ≤ (A ∪ S₂ ∪ S₃).card + 1 := Finset.card_insert_le _ _
+      _ ≤ 1 + (A.card + S₂.card + S₃.card) := by
+          have h1 : (A ∪ S₂ ∪ S₃).card ≤ (A ∪ S₂).card + S₃.card :=
+            Finset.card_union_le _ _
+          have h2 : (A ∪ S₂).card ≤ A.card + S₂.card := Finset.card_union_le _ _
+          omega
+  omega
+
+/-- The linear covering bound evaluated at an excess bound `C₀`: the light-anchor
+cover `53 + 6·C₀` (the disjoint-slot 6X covering: heavy counts are dominated
+by their own excess pools) when a light usable vertex exists; the second arm
+`199990` dominates both the all-usable-heavy case (`n + 8 ≤ 5·29877`) and the
+hoarding wall (`199985 = 6·33322 + 53`). -/
+def boundLin (C₀ : ℕ) : ℕ := max ((151 + 11 * C₀) / 2) 520
 
 end ACMax

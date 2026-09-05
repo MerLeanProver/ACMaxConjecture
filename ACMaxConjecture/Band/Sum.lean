@@ -4,12 +4,12 @@ import ACMaxConjecture.AHL.AHLAmGm
 # The SUM (vertex-ball) Moore refutation — the band-discharge spine (B1–B3)
 
 This file lands the SUM (vertex-ball) sharpening of the Alon–Hoory–Linial irregular Moore bound
-(nodes B1–B3 of the band discharge), the spine of the `hStarved55` discharge on `64 ≤ n ≤ 1099`.  It composes the landed AM–GM walk-count lower bound (`nb_amgm_lambda`,
+(nodes B1–B3 of the band discharge), the spine of the `hStarved55` discharge on `64 ≤ n ≤ 387`.  It composes the landed AM–GM walk-count lower bound (`nb_amgm_lambda`,
 `lambda_ge`) with a new *ball* injectivity: at girth `> 2ℓ` the endpoints of all non-backtracking
 walks of length `1..ℓ` from a fixed start are pairwise distinct and differ from the start.  Writing
 `n = Fintype.card V` and `D = ∑ v, G.degree v`, the ball form
-`D · Σ_{k<ℓ} (D − n)^k n^(ℓ−1−k) ≤ n^ℓ (n − 1)` keeps the whole Moore ball,
-which supplies the half-level needed by the band argument.
+`D · Σ_{k<ℓ} (D − n)^k n^(ℓ−1−k) ≤ n^ℓ (n − 1)` keeps the whole Moore ball (not just the top level),
+buying the extra half-level over the pair form `ahl_irregular_moore`.
 
 ## Contents
 
@@ -31,8 +31,8 @@ open SimpleGraph Finset
 
 /-- **B1 — the sharp non-backtracking path lemma.**  In a graph with no cycle of length `≤ r`, every
 non-backtracking walk of length `≤ r` is a path.  This sharpens the landed
-Peeling the first edge, the tail is a non-backtracking walk of length `≤ r`, hence a path by
-induction; a revisit of the start supplies
+`nb_walk_isPath_of_girth` (which demands girth `> 2r + 1`): peeling the first edge, the tail is a
+non-backtracking walk of length `≤ r`, hence a path by induction; a revisit of the start supplies
 two distinct paths closing a cycle of length `≤ r`, contradicting the hypothesis. -/
 theorem nb_walk_isPath_of_girth_sharp {V : Type*} (G : SimpleGraph V) {r : ℕ}
     (hg : ∀ (v : V) (c : G.Walk v v), c.IsCycle → r < c.length) :
@@ -125,8 +125,8 @@ theorem nb_ball_injectivity
       have h0 : s.2.getVert 0 = x := s.2.getVert_zero
       have hLv : s.2.getVert s.2.length = s.1 := s.2.getVert_length
       have hcontra : (0 : ℕ) = s.2.length :=
-        hpath.getVert_injOn (by simp only [Set.mem_ofPred_eq]; omega)
-          (by simp only [Set.mem_ofPred_eq]; omega) (by rw [h0, hLv, hvx])
+        hpath.getVert_injOn (by simp only [Set.mem_setOf_eq]; omega)
+          (by simp only [Set.mem_setOf_eq]; omega) (by rw [h0, hLv, hvx])
       omega
     have hinj : Set.InjOn (fun s : Σ v : V, G.Walk x v => s.1)
         ↑((Finset.Icc 1 ℓ).biUnion (fun k => nbWalksFrom G x k)) := by
@@ -174,7 +174,7 @@ and `1 ≤ ℓ`, the whole Moore ball is captured:
 `D · Σ_{k<ℓ} (D − n)^k n^(ℓ−1−k) ≤ n^ℓ (n − 1)`.  Per level `k`, the AM–GM lower bound
 `D·((D − n)/n)^k ≤ m_{k+1}` (`lambda_ge`, `nb_amgm_lambda`) is scaled by `n^(ℓ−1)`; summing and
 capping `Σ m_k ≤ n(n − 1)` (`nb_ball_injectivity`) gives the ℝ inequality, cast back to ℕ via
-`n ≤ D`.  Keeping every lower Moore term is essential for the final band estimate. -/
+`n ≤ D`.  This keeps the lower Moore terms the pair form `ahl_irregular_moore` discards. -/
 theorem ahl_ball_moore (hδ2 : ∀ v, 2 ≤ G.degree v) [Nonempty V] (hℓ : 1 ≤ ℓ)
     (hg : ∀ (v : V) (c : G.Walk v v), c.IsCycle → 2 * ℓ < c.length) :
     (∑ v, G.degree v) * ∑ k ∈ Finset.range ℓ,

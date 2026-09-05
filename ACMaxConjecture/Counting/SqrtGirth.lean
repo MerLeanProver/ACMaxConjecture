@@ -65,7 +65,6 @@ theorem induced_pairs_eq_two_mul_edges [Fintype V] [DecidableEq V] (G : SimpleGr
 end ACMax
 
 
-
 /-! ## The `ZMod`-cycle conversion
 
 `cycle_walk_to_zmod`: from a cycle walk `w` whose support lies inside `S`, produce
@@ -87,7 +86,7 @@ theorem cycle_walk_to_zmod {n : ℕ} {G : SimpleGraph (Fin n)} {v : Fin n} {w : 
     3 ≤ w.length ∧ ∃ c : ZMod w.length → Fin n, Function.Injective c ∧
       (∀ i : ZMod w.length, G.Adj (c i) (c (i + 1))) ∧ (∀ i : ZMod w.length, c i ∈ S) := by
   have hlen3 : 3 ≤ w.length := hcyc.three_le_length
-  have : NeZero w.length := ⟨by omega⟩
+  haveI : NeZero w.length := ⟨by omega⟩
   -- `getVert` is injective on `{0, …, k−1}` because the cycle minus its repeated endpoint is a path
   have hinj : ∀ a b : ℕ, a < w.length → b < w.length → w.getVert a = w.getVert b → a = b := by
     intro a b ha hb hab
@@ -99,8 +98,8 @@ theorem cycle_walk_to_zmod {n : ℕ} {G : SimpleGraph (Fin n)} {v : Fin n} {w : 
     have hgb : w.dropLast.getVert b = w.getVert b := by
       show (w.take (w.length - 1)).getVert b = w.getVert b
       rw [Walk.take_getVert, inf_eq_right.mpr (show b ≤ w.length - 1 by omega)]
-    have ha' : a ∈ {i | i ≤ w.dropLast.length} := by rw [Set.mem_ofPred_eq]; omega
-    have hb' : b ∈ {i | i ≤ w.dropLast.length} := by rw [Set.mem_ofPred_eq]; omega
+    have ha' : a ∈ {i | i ≤ w.dropLast.length} := by rw [Set.mem_setOf_eq]; omega
+    have hb' : b ∈ {i | i ≤ w.dropLast.length} := by rw [Set.mem_setOf_eq]; omega
     exact hpath.getVert_injOn ha' hb' (by rw [hga, hgb]; exact hab)
   refine ⟨hlen3, fun i => w.getVert i.val, ?_, ?_, ?_⟩
   · intro i j hij
@@ -492,35 +491,6 @@ theorem two_mul_sum_range_sub (m : ℕ) :
     rw [hsplit, Nat.mul_add, ih]
     ring
 
-/-- **BFS levels have at least two vertices.**  In a graph with minimum degree at least `2` and no
-cycle of length `≤ 2r + 1`, every BFS level `L_j(x) = {v | dist x v = j}` with `1 ≤ j ≤ r` contains
-at least two vertices.  Level `1` is the neighbourhood (size `deg x ≥ 2`) and the levels grow
-through `level_card_growth` (each `deg v − 1 ≥ 1`). -/
-theorem level_card_ge_two {V : Type*} [Fintype V] (G : SimpleGraph V) [DecidableRel G.Adj]
-    {r : ℕ} (hmin : ∀ v, 2 ≤ G.degree v)
-    (hg : ∀ (v : V) (c : G.Walk v v), c.IsCycle → 2 * r + 1 < c.length) (x : V) {j : ℕ}
-    (hj1 : 1 ≤ j) (hjr : j ≤ r) :
-    2 ≤ (univ.filter (fun v => G.dist x v = j)).card := by
-  classical
-  revert hjr
-  induction j, hj1 using Nat.le_induction with
-  | base =>
-    intro _
-    have hL1 : univ.filter (fun v => G.dist x v = 1) = G.neighborFinset x := by
-      ext v
-      simp only [Finset.mem_filter, Finset.mem_univ, true_and, SimpleGraph.mem_neighborFinset]
-      exact SimpleGraph.dist_eq_one_iff_adj
-    rw [hL1, G.card_neighborFinset_eq_degree]
-    exact hmin x
-  | succ n hn ih =>
-    intro hnr
-    have hge2 : 2 ≤ (univ.filter (fun v => G.dist x v = n)).card := ih (by omega)
-    rw [level_card_growth G hg x hn (by omega)]
-    calc 2 ≤ (univ.filter (fun v => G.dist x v = n)).card := hge2
-      _ = ∑ _v ∈ univ.filter (fun v => G.dist x v = n), 1 := by rw [Finset.card_eq_sum_ones]
-      _ ≤ ∑ v ∈ univ.filter (fun v => G.dist x v = n), (G.degree v - 1) :=
-          Finset.sum_le_sum (fun v _ => by have := hmin v; omega)
-
 /-- **BFS levels are at least as wide as the root degree.**  The sharpening of `level_card_ge_two`
 that the SQRT double count actually wants: in a graph with minimum degree at least `2` and no cycle
 of length `≤ 2r + 1`, every BFS level `L_j(x) = {v | dist x v = j}` with `1 ≤ j ≤ r` has at least
@@ -573,125 +543,6 @@ theorem sum_level_excess_swap {V : Type*} [Fintype V] (G : SimpleGraph V) [Decid
 
 /-- **The SQRT double count.**  In a connected graph `G` on a finite `V` with minimum degree at
 least `2`, edge excess `t` (`|V| + t ≤ e(G)`), and no cycle of length `≤ 2r + 1`, the ball double
-count gives `|V|·(1 + 2r) + 2·t·r² ≤ |V|²`.  Summing `ball_weighted_lower` over all roots, swapping
-(`sum_level_excess_swap`), and feeding the handshake `Σ_v(deg v − 2) ≥ 2t` together with the level
-floor `|L_i(v)| ≥ 2` (`1 ≤ i ≤ r`, `level_card_ge_two`) telescoped by `two_mul_sum_range_sub`. -/
-theorem sqrt_double_count {V : Type*} [Fintype V] (G : SimpleGraph V) [DecidableRel G.Adj]
-    {r t : ℕ} (hmin : ∀ v, 2 ≤ G.degree v)
-    (hg : ∀ (v : V) (c : G.Walk v v), c.IsCycle → 2 * r + 1 < c.length)
-    (hconn : G.Connected) (hexc : Fintype.card V + t ≤ G.edgeFinset.card) :
-    Fintype.card V * (1 + 2 * r) + 2 * t * r ^ 2 ≤ (Fintype.card V) ^ 2 := by
-  classical
-  -- The per-root quadratic ball bound.
-  have hbw : ∀ x : V, 1 + 2 * r + ∑ i ∈ range r, (r - i) *
-      (∑ v ∈ univ.filter (fun v => G.dist x v = i), (G.degree v - 2))
-      ≤ (univ.filter (fun v => G.dist x v ≤ r)).card :=
-    fun x => ball_weighted_lower G hmin hg hconn x
-  have hsum1 : ∑ x : V, (1 + 2 * r + ∑ i ∈ range r, (r - i) *
-      (∑ v ∈ univ.filter (fun v => G.dist x v = i), (G.degree v - 2)))
-      ≤ ∑ x : V, (univ.filter (fun v => G.dist x v ≤ r)).card :=
-    Finset.sum_le_sum (fun x _ => hbw x)
-  -- Each ball fits in `V`, so the summed balls are at most `|V|²`.
-  have hRHS : ∑ x : V, (univ.filter (fun v => G.dist x v ≤ r)).card ≤ (Fintype.card V) ^ 2 := by
-    calc ∑ x : V, (univ.filter (fun v => G.dist x v ≤ r)).card
-        ≤ ∑ _x : V, Fintype.card V :=
-          Finset.sum_le_sum (fun x _ => (Finset.card_filter_le _ _).trans_eq Finset.card_univ)
-      _ = Fintype.card V * Fintype.card V := by
-          rw [Finset.sum_const, Finset.card_univ, smul_eq_mul]
-      _ = (Fintype.card V) ^ 2 := (pow_two _).symm
-  -- The excess-weighted degree data.
-  set D : ℕ := ∑ v : V, (G.degree v - 2) with hD
-  set W : ℕ → ℕ := fun i =>
-    ∑ v : V, (univ.filter (fun x => G.dist v x = i)).card * (G.degree v - 2) with hW
-  -- The swap: `Σ_x Σ_i (r−i)·ε_i(x) = Σ_i (r−i)·W i`.
-  have hswapall : ∑ x : V, ∑ i ∈ range r, (r - i) *
-        (∑ v ∈ univ.filter (fun v => G.dist x v = i), (G.degree v - 2))
-      = ∑ i ∈ range r, (r - i) * W i := by
-    rw [Finset.sum_comm]
-    refine Finset.sum_congr rfl (fun i _ => ?_)
-    rw [← Finset.mul_sum]
-    congr 1
-    simp only [hW]
-    exact sum_level_excess_swap G i
-  -- `W 0 = D` (level `0` is the singleton root).
-  have hW0 : W 0 = D := by
-    simp only [hW, hD]
-    refine Finset.sum_congr rfl (fun v _ => ?_)
-    have hcard : (univ.filter (fun x => G.dist v x = 0)).card = 1 := by
-      have hset : univ.filter (fun x => G.dist v x = 0) = ({v} : Finset V) := by
-        ext w
-        simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton]
-        constructor
-        · intro h
-          exact ((hconn.preconnected v w).dist_eq_zero_iff.mp h).symm
-        · rintro rfl
-          exact SimpleGraph.dist_self
-      rw [hset, Finset.card_singleton]
-    rw [hcard, one_mul]
-  -- `2·D ≤ W i` for `1 ≤ i ≤ r` (each level has at least two vertices).
-  have hWi : ∀ i, 1 ≤ i → i ≤ r → 2 * D ≤ W i := by
-    intro i hi1 hir
-    simp only [hW, hD]
-    rw [Finset.mul_sum]
-    refine Finset.sum_le_sum (fun v _ => ?_)
-    exact mul_le_mul_left (level_card_ge_two G hmin hg v hi1 hir) (G.degree v - 2)
-  -- The handshake: `2t ≤ D`.
-  have hD2t : 2 * t ≤ D := by
-    have hsum : ∑ v : V, G.degree v = 2 * G.edgeFinset.card :=
-      G.sum_degrees_eq_twice_card_edges
-    have hDeq : ∑ v : V, G.degree v
-        = (∑ v : V, (G.degree v - 2)) + 2 * Fintype.card V := by
-      calc ∑ v : V, G.degree v = ∑ v : V, ((G.degree v - 2) + 2) :=
-            Finset.sum_congr rfl (fun v _ => by have := hmin v; omega)
-        _ = (∑ v : V, (G.degree v - 2)) + ∑ _v : V, (2 : ℕ) := Finset.sum_add_distrib
-        _ = (∑ v : V, (G.degree v - 2)) + 2 * Fintype.card V := by
-            rw [Finset.sum_const, Finset.card_univ, smul_eq_mul, Nat.mul_comm]
-    rw [hD]
-    omega
-  -- The triangular weight telescopes to `D·r²`.
-  have hDr : D * r ^ 2 ≤ ∑ i ∈ range r, (r - i) * W i := by
-    rcases Nat.eq_zero_or_pos r with hr0 | hrpos
-    · rw [hr0]; simp
-    · obtain ⟨m, hr⟩ : ∃ m, r = m + 1 := ⟨r - 1, by omega⟩
-      have hrw : ∑ i ∈ range r, (r - i) * W i
-          = (∑ i ∈ range m, (m - i) * W (i + 1)) + (m + 1) * D := by
-        rw [hr, Finset.sum_range_succ' (fun i => (m + 1 - i) * W i) m]
-        congr 1
-        · apply Finset.sum_congr rfl
-          intro i _
-          congr 1
-          omega
-        · rw [Nat.sub_zero, hW0]
-      rw [hrw, hr]
-      have hlow : (∑ i ∈ range m, (m - i)) * (2 * D)
-          ≤ ∑ i ∈ range m, (m - i) * W (i + 1) := by
-        rw [Finset.sum_mul]
-        apply Finset.sum_le_sum
-        intro i hi
-        rw [Finset.mem_range] at hi
-        exact mul_le_mul_right (hWi (i + 1) (by omega) (by omega)) (m - i)
-      have hgauss : 2 * ∑ i ∈ range m, (m - i) = m * (m + 1) := two_mul_sum_range_sub m
-      have hSUM : m * (m + 1) * D ≤ ∑ i ∈ range m, (m - i) * W (i + 1) := by
-        calc m * (m + 1) * D = (2 * ∑ i ∈ range m, (m - i)) * D := by rw [hgauss]
-          _ = (∑ i ∈ range m, (m - i)) * (2 * D) := by ring
-          _ ≤ ∑ i ∈ range m, (m - i) * W (i + 1) := hlow
-      calc D * (m + 1) ^ 2 = m * (m + 1) * D + (m + 1) * D := by ring
-        _ ≤ (∑ i ∈ range m, (m - i) * W (i + 1)) + (m + 1) * D := Nat.add_le_add_right hSUM _
-  -- Assemble.
-  calc Fintype.card V * (1 + 2 * r) + 2 * t * r ^ 2
-      ≤ Fintype.card V * (1 + 2 * r) + ∑ i ∈ range r, (r - i) * W i := by
-        have hchain : 2 * t * r ^ 2 ≤ ∑ i ∈ range r, (r - i) * W i :=
-          le_trans (mul_le_mul_left hD2t (r ^ 2)) hDr
-        exact Nat.add_le_add_left hchain _
-    _ = ∑ x : V, (1 + 2 * r + ∑ i ∈ range r, (r - i) *
-          (∑ v ∈ univ.filter (fun v => G.dist x v = i), (G.degree v - 2))) := by
-        rw [Finset.sum_add_distrib, Finset.sum_const, Finset.card_univ, smul_eq_mul, hswapall]
-    _ ≤ ∑ x : V, (univ.filter (fun v => G.dist x v ≤ r)).card := hsum1
-    _ ≤ (Fintype.card V) ^ 2 := hRHS
-
-
-/-- **The SQRT double count.**  In a connected graph `G` on a finite `V` with minimum degree at
-least `2`, edge excess `t` (`|V| + t ≤ e(G)`), and no cycle of length `≤ 2r + 1`, the ball double
 count gives `|V|·(1 + 2r) + t·(3r² − r) ≤ |V|²`.  Summing `ball_weighted_lower` over all roots,
 swapping (`sum_level_excess_swap`), and feeding the handshake `Σ_v(deg v − 2) ≥ 2t` together with
 the level floor `|L_i(v)| ≥ deg v` (`1 ≤ i ≤ r`, `level_card_ge_deg`) telescoped by
@@ -702,7 +553,7 @@ The excess weight is `3r² − r`, not the `2r²` obtained from the weaker floor
 not merely `2`, so `W i ≥ 3D` for `1 ≤ i ≤ r` and the triangular telescope returns
 `rD + 3D·r(r−1)/2 ≥ t(3r² − r)`.  Since `3r² − r ≥ 2r²` for `r ≥ 1`, this strictly strengthens the
 old conclusion, and it is what pulls the import-free girth floor down. -/
-theorem sqrt_double_count_sharp {V : Type*} [Fintype V] (G : SimpleGraph V) [DecidableRel G.Adj]
+theorem sqrt_double_count {V : Type*} [Fintype V] (G : SimpleGraph V) [DecidableRel G.Adj]
     {r t : ℕ} (hmin : ∀ v, 2 ≤ G.degree v)
     (hg : ∀ (v : V) (c : G.Walk v v), c.IsCycle → 2 * r + 1 < c.length)
     (hconn : G.Connected) (hexc : Fintype.card V + t ≤ G.edgeFinset.card) :

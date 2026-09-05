@@ -1,4 +1,4 @@
-import ACMaxConjecture.Base
+import Mathlib
 import ACMaxConjecture.Spectral.AlgConn
 import ACMaxConjecture.Spectral.RayleighUpper
 import ACMaxConjecture.Spectral.TestVector
@@ -157,5 +157,25 @@ theorem algConn_le_two_of_low_degree_vertex {V : Type*} [Fintype V] [Nonempty V]
     have hdu : (G.degree u : ℝ) ≤ 2 := by exact_mod_cast hdeg
     nlinarith [hTbound, mul_le_mul_of_nonneg_right hdu (sq_nonneg (t : ℝ))]
   exact algConn_le_two_of_testvector G x hx0 hxne hQ
+
+/-- On `Fin n` with `n ≥ 4`, the complement of the closed neighborhood of a
+vertex of degree at most `2` is automatically nonempty. -/
+theorem algConn_le_two_of_degree_le_two {n : ℕ} [Nonempty (Fin n)] (hn : 4 ≤ n)
+    (G : SimpleGraph (Fin n)) (u : Fin n) (hdeg : G.degree u ≤ 2) :
+    algConn G ≤ 2 := by
+  letI : DecidableEq (Fin n) := fun a b => Classical.propDecidable (a = b)
+  refine algConn_le_two_of_low_degree_vertex G u hdeg ?_
+  rw [Finset.sdiff_nonempty]
+  intro hsub
+  have hle : (Finset.univ : Finset (Fin n)).card ≤
+      (insert u (G.neighborFinset u)).card := Finset.card_le_card hsub
+  rw [Finset.card_univ, Fintype.card_fin] at hle
+  have hcard : (insert u (G.neighborFinset u)).card ≤ 3 := by
+    calc
+      (insert u (G.neighborFinset u)).card ≤ (G.neighborFinset u).card + 1 :=
+        Finset.card_insert_le _ _
+      _ = G.degree u + 1 := by rw [SimpleGraph.card_neighborFinset_eq_degree]
+      _ ≤ 3 := by omega
+  omega
 
 end ACMax

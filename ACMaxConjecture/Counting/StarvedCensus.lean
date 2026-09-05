@@ -1,4 +1,4 @@
-import ACMaxConjecture.Base
+import Mathlib
 import ACMaxConjecture.Counting.Moats
 import ACMaxConjecture.Counting.ResidualInterface
 import ACMaxConjecture.Counting.XBoundAssembly
@@ -352,7 +352,7 @@ theorem tri_deg445_fires {n : ℕ} [Nonempty (Fin n)] (hn : 16 ≤ n)
   have e2 : (![a, b, t] : Fin 3 → Fin n) 2 = t := rfl
   refine master_cycle_fires (k := 3) (by norm_num) G hm h3 ![a, b, t] ?_ ?_ ?_ ?_
   · intro i j hij
-    fin_cases i <;> fin_cases j <;> simp_all <;> rfl
+    fin_cases i <;> fin_cases j <;> simp_all
   · intro i
     fin_cases i
     · show G.Adj a b; exact hab
@@ -814,7 +814,7 @@ theorem owner_sat_independence {n : ℕ} [Nonempty (Fin n)] (hn : 39 ≤ n)
     have e2 : (![o, s, t] : Fin 3 → Fin n) 2 = t := rfl
     refine master_cycle_fires (k := 3) (by norm_num) G hm h3 ![o, s, t] ?_ ?_ ?_ ?_
     · intro i j hij
-      fin_cases i <;> fin_cases j <;> simp_all <;> rfl
+      fin_cases i <;> fin_cases j <;> simp_all
     · intro i
       fin_cases i
       · show G.Adj o s; exact hadj
@@ -938,7 +938,7 @@ theorem deco_edge_shared_twin_fires {n : ℕ} [Nonempty (Fin n)]
     have hmem : a ∈ Ku ∩ Kv := Finset.mem_inter.mpr ⟨ha, hb⟩
     rw [hshare] at hmem
     exact Finset.mem_singleton.mp hmem
-  let : DecidableEq (Fin n) := Classical.decEq (Fin n)
+  letI : DecidableEq (Fin n) := Classical.decEq (Fin n)
   have hdeg3u : 3 ≤ G.degree u := h3 u
   have hdeg3v : 3 ≤ G.degree v := h3 v
   have huv' : u ≠ v := G.ne_of_adj huv
@@ -1343,7 +1343,7 @@ theorem sat_sat_independence {n : ℕ} [Nonempty (Fin n)] (hn : 48 ≤ n)
     have e3 : (![s₁, t₁, s₂, t₂] : Fin 4 → Fin n) 3 = t₂ := rfl
     refine master_cycle_fires (k := 4) (by norm_num) G hm h3 ![s₁, t₁, s₂, t₂] ?_ ?_ ?_ ?_
     · intro i j hij
-      fin_cases i <;> fin_cases j <;> simp_all <;> rfl
+      fin_cases i <;> fin_cases j <;> simp_all
     · intro i
       fin_cases i
       · show G.Adj s₁ t₁; exact has1t1

@@ -165,7 +165,7 @@ theorem ahl_ball_girth_subset {n : ℕ} (G : SimpleGraph (Fin n)) (S : Finset (F
     ball_side_transport ht1 hℓ1 (Finset.card_le_card hS'sub) hQv
   -- The induced graph on the `2`-core.
   set H : SimpleGraph (↥(↑S' : Set (Fin n))) := G.induce (↑S' : Set (Fin n)) with hHdef
-  have : Nonempty (↥(↑S' : Set (Fin n))) := (Finset.coe_nonempty.mpr hS'ne).to_subtype
+  haveI : Nonempty (↥(↑S' : Set (Fin n))) := (Finset.coe_nonempty.mpr hS'ne).to_subtype
   have hcardV' : Fintype.card (↥(↑S' : Set (Fin n))) = S'.card := by
     rw [← Set.toFinset_card, Finset.toFinset_coe]
   have hDS : edgeSumWithin G S' = 2 * H.edgeFinset.card := by

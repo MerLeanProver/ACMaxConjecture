@@ -1,40 +1,66 @@
-import ACMaxConjecture.Band.Assembly
-import ACMaxConjecture.Band.Decide
+import ACMaxConjecture.Band.AssemblyAllRange
+import ACMaxConjecture.Counting.Windows
 
 /-!
-# THE ACMAX CONJECTURE — the final splice
+# Final two-range assembly
 
-This file discharges the one staged hypothesis of the band-discharge assembly (`Band.Assembly`,
-node B10) with the kernel-`decide` lemma (`Band.Decide`, node B8), producing the **hypothesis-free**
-ACMAX conjecture
-(Kolokolnikov, Conjecture 1.5, arXiv:1412.6147): for every `n ≥ 4`,
+The conjecture is assembled from the same ranges used in the mathematical
+paper:
 
-* `algConn (K_{2,n-2}) = 2`, and
-* every simple graph on `Fin n` with exactly `2(n-2)` edges has `algConn ≤ 2`.
+* `4 ≤ n ≤ 31`;
+* `n ≥ 32`.
 
-The two ingredients meet at the reducible `abbrev AhlBandLowDecide`; the `let`-bindings in
-`ahl_band_low_decide`'s statement unfold definitionally into the abbrev's expanded form.
+The second range combines the direct incidence-capacity proof on
+`32 ≤ n ≤ 49` with the exact Moore closure for `n ≥ 48`; their overlap at
+orders `48` and `49` is harmless.
 -/
 
 namespace ACMax
 
 open scoped Classical
 
-/-- **The B8 kernel-decide lemma in the `AhlBandLowDecide` shape.**  The `let`-form conclusion of
-`ahl_band_low_decide` zeta-reduces to the expanded form of the abbrev, so this is a definitional
-repackaging. -/
-theorem ahl_band_low : AhlBandLowDecide :=
-  ahl_band_low_decide
+/-- Every graph of order at least `32` with exactly `2(n-2)` edges has
+algebraic connectivity at most `2`. -/
+theorem upperBound_ge_32_exact {n : ℕ} [Nonempty (Fin n)]
+    (hn32 : 32 ≤ n) (G : SimpleGraph (Fin n))
+    (hm : G.edgeFinset.card = 2 * (n - 2)) : algConn G ≤ 2 := by
+  by_cases hn49 : n ≤ 49
+  · exact upperBound_range_49 (by omega) hn49 G hm
+  · exact upperBound_ge_48_exact (by omega) G hm
 
-/-- **THE ACMAX CONJECTURE (Kolokolnikov, Conjecture 1.5, arXiv:1412.6147), hypothesis-free.**
-For every `n ≥ 4`: the complete bipartite graph `K_{2,n-2}` has algebraic connectivity exactly
-`2`, and it maximizes algebraic connectivity among all simple graphs on `n` vertices with
-`m = 2(n-2)` edges — every such graph `G` has `algConn G ≤ 2`. -/
+/-- The ACMAX conjecture for every order `n ≥ 4`, assembled at the
+paper's `31/32` boundary. -/
+theorem acmax_conjecture_full :
+    ∀ (n : ℕ) [Nonempty (Fin n)], 4 ≤ n →
+      algConn (completeBipartiteGraph (Fin 2) (Fin (n - 2))) = 2 ∧
+        ∀ G : SimpleGraph (Fin n),
+          G.edgeFinset.card = 2 * (n - 2) → algConn G ≤ 2 := by
+  intro n _inst hn4
+  refine ⟨algConn_completeBipartite_two n hn4, ?_⟩
+  intro G hm
+  by_cases hn31 : n ≤ 31
+  · exact upperBound_moat hn4 hn31 G hm
+  · exact upperBound_ge_32_exact (by omega) G hm
+
+/-- Canonical hypothesis-free formulation of the ACMAX conjecture. -/
 theorem acmax_conjecture_general :
     ∀ (n : ℕ) [Nonempty (Fin n)], 4 ≤ n →
       algConn (completeBipartiteGraph (Fin 2) (Fin (n - 2))) = 2 ∧
-        ∀ G : SimpleGraph (Fin n), G.edgeFinset.card = 2 * (n - 2) → algConn G ≤ 2 :=
-  acmax_conjecture_of_decide ahl_band_low
+        ∀ G : SimpleGraph (Fin n),
+          G.edgeFinset.card = 2 * (n - 2) → algConn G ≤ 2 :=
+  acmax_conjecture_full
 
+/-- Every residual graph has algebraic connectivity at most `2`, as an
+immediate corollary of the full theorem. -/
+theorem residual_algConn_le_two {n : ℕ} [Nonempty (Fin n)]
+    (G : SimpleGraph (Fin n)) (h : ResidualCore n G) : algConn G ≤ 2 :=
+  (acmax_conjecture_general n (by have := h.n_ge; omega)).2 G h.edge_card
+
+/-- Every graph on `Fin n`, `n ≥ 12`, with exactly `2(n-2)` edges has
+algebraic connectivity at most `2`. -/
+theorem algConn_le_two_of_card_general (n : ℕ) (hn : 12 ≤ n)
+    [Nonempty (Fin n)] (G : SimpleGraph (Fin n))
+    (hm : G.edgeFinset.card = 2 * (n - 2)) : algConn G ≤ 2 :=
+  (acmax_conjecture_general n (by omega)).2 G hm
 
 end ACMax

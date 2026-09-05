@@ -1,4 +1,4 @@
-import ACMaxConjecture.Base
+import Mathlib
 import ACMaxConjecture.Spectral.AlgConn
 import ACMaxConjecture.Spectral.RayleighUpper
 import ACMaxConjecture.Spectral.RayleighLower
@@ -19,8 +19,8 @@ theorem algConn_completeBipartite_two (n : ℕ) (hn : 4 ≤ n) :
     algConn (completeBipartiteGraph (Fin 2) (Fin (n - 2))) = 2 := by
   classical
   set m := n - 2 with hm
-  let : DecidableEq (Fin 2 ⊕ Fin m) := fun a b => Classical.propDecidable (a = b)
-  have : Nontrivial (Fin 2 ⊕ Fin m) := ⟨Sum.inl 0, Sum.inl 1, by simp⟩
+  letI : DecidableEq (Fin 2 ⊕ Fin m) := fun a b => Classical.propDecidable (a = b)
+  haveI : Nontrivial (Fin 2 ⊕ Fin m) := ⟨Sum.inl 0, Sum.inl 1, by simp⟩
   set G : SimpleGraph (Fin 2 ⊕ Fin m) := completeBipartiteGraph (Fin 2) (Fin m) with hG
   -- adjacency description
   have hadj : ∀ i j : Fin 2 ⊕ Fin m, G.Adj i j ↔

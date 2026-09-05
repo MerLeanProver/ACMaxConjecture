@@ -1,4 +1,4 @@
-import ACMaxConjecture.Base
+import Mathlib
 
 /-!
 # The internal-degree sum of a vertex set is even

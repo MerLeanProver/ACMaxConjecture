@@ -1,4 +1,4 @@
-import ACMaxConjecture.Base
+import Mathlib
 import ACMaxConjecture.Spectral.AlgConn
 import ACMaxConjecture.Spectral.RayleighUpper
 import ACMaxConjecture.Spectral.TestVector

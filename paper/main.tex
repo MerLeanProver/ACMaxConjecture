@@ -1,0 +1,854 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+% The Lean excerpt in the formalization section (verbatim) contains a few
+% Unicode mathematical characters:
+\DeclareUnicodeCharacter{2115}{\ensuremath{\mathbb{N}}}   % ℕ
+\DeclareUnicodeCharacter{2264}{\ensuremath{\le}}          % ≤
+\DeclareUnicodeCharacter{2227}{\ensuremath{\wedge}}       % ∧
+\DeclareUnicodeCharacter{2200}{\ensuremath{\forall}}      % ∀
+\DeclareUnicodeCharacter{2192}{\ensuremath{\to}}          % →
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\definecolor{midnightblue}{RGB}{25,25,112}
+\usepackage[colorlinks=true,allcolors=midnightblue]{hyperref}
+\usepackage[backend=biber,style=numeric,giveninits=true,url=false,
+            maxbibnames=99]{biblatex}
+% The .bib entries are kept verbatim as exported by arXiv ("Export BibTeX
+% citation"); the sourcemaps below only (i) mark the corporate author of
+% the mathlib paper as a literal name so it is not parsed as a person,
+% (ii) strip the resolver prefix arXiv places inside doi fields so the
+% rendered DOI hyperlink resolves correctly, and (iii) append the
+% published-version reference (venue, volume, pages, DOI hyperlink) to the
+% two entries whose works also appeared in a journal or proceedings.
+\DeclareSourcemap{%
+  \maps[datatype=bibtex]{%
+    \map[overwrite]{%
+      \step[fieldsource=author,
+            match=\regexp{\AThe\smathlib\sCommunity\z},
+            replace=\regexp{\{The\x20mathlib\x20Community\}}]%
+    }%
+    \map[overwrite]{%
+      \step[fieldsource=doi,
+            match=\regexp{\Ahttps?://(dx\.)?doi\.org/},
+            replace={}]%
+    }%
+    \map[overwrite]{%
+      \step[fieldsource=entrykey,
+            match=\regexp{\Akolokolnikov2014maximizingalgebraicconnectivitycertain\z},
+            final]%
+      \step[fieldset=addendum,
+            fieldvalue={Published in \emph{Linear Algebra and its
+              Applications} \textbf{471} (2015), 122--140,
+              \url{https://doi.org/10.1016/j.laa.2014.12.023}}]%
+    }%
+    \map[overwrite]{%
+      \step[fieldsource=entrykey,
+            match=\regexp{\Agao2025semanticsearchenginemathlib4\z},
+            final]%
+      \step[fieldset=addendum,
+            fieldvalue={Published in \emph{Findings of the Association for
+              Computational Linguistics: EMNLP 2024}, Association for
+              Computational Linguistics, pp.~8001--8013,
+              \url{https://doi.org/10.18653/v1/2024.findings-emnlp.470}}]%
+    }%
+  }%
+}
+\addbibresource{bib.bib}
+
+\emergencystretch=2em
+\numberwithin{equation}{section}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{conjecture}[theorem]{Conjecture}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\ac}{\lambda_2}
+
+\title{Maximizing Algebraic Connectivity with \(2(n-2)\) Edges}
+
+% TODO: Replace the author block before public circulation.
+\author{
+Zeru Zhu$^{1}$\thanks{Equal Contribution}\and
+Jinzheng Li$^{2}$\footnotemark[1] \and
+Yuanjie Ren$^{3}$\footnotemark[1] \and
+Ji Liu$^{4}$
+}
+
+\date{
+\small
+$^{1}$Department of Applied Mathematics \& Statistics, Stony Brook University\\
+$^{2}$Department of Physics, Northeastern University\\
+$^{3}$Department of Physics,
+Massachusetts Institute of Technology\\
+$^{4}$Department of Electrical and Computer Engineering, Stony Brook University\\
+[0.6em] \texttt{zeru.zhu@stonybrook.edu} \quad \texttt{li.jinzh@northeastern.edu}\\ \texttt{yuanjie@mit.edu} \quad \texttt{ji.liu@stonybrook.edu}
+}
+
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Kolokolnikov conjectured that, among finite simple graphs on \(n\) vertices
+with exactly \(2(n-2)\) edges, the complete bipartite graph \(K_{2,n-2}\)
+maximizes algebraic connectivity.  We prove the conjecture for every
+\(n\ge4\): each such graph has algebraic connectivity \(\le2\), while
+\(K_{2,n-2}\) attains \(2\).  Explicit Rayleigh-quotient test vectors first
+impose strong local restrictions on a hypothetical counterexample.  For
+\(n\ge48\), degree counting and an exact non-backtracking Moore bound then
+force a short cycle that the same spectral estimates forbid.  A sharper
+incidence count handles \(32\le n\le49\), while additional local and cut
+arguments cover \(4\le n\le31\).  The underlying Lean~4 formalization was
+generated with MerLean and checked by the Lean kernel.  The present paper
+gives a self-contained mathematical account of the proof.
+\end{abstract}
+
+\noindent\textbf{Keywords.}
+Algebraic connectivity; Laplacian eigenvalue; extremal graph; Moore bound;
+formal verification; Lean; AI-assisted theorem proving.
+
+\medskip
+\noindent\textbf{MSC 2020.}
+Primary 05C50; secondary 05C35, 05C38, 68V15, 68V20.
+
+\section{Introduction}\label{sec:introduction}
+
+For a finite simple graph \(G\) on \(n\) vertices, let \(A(G)\) and
+\(D(G)\) be its adjacency and diagonal degree matrices, respectively, and
+let \(L(G)=D(G)-A(G)\) be its Laplacian matrix.  Order the Laplacian
+eigenvalues as
+\(0=\lambda_1(G)\le\lambda_2(G)\le\cdots\le\lambda_n(G)\).  The
+second-smallest Laplacian eigenvalue \(\lambda_2(G)\) is called the
+\emph{algebraic connectivity} of \(G\).  Introduced by
+Fiedler~\cite{fiedler1973}, this parameter relates spectral information to
+the connectivity and expansion of a graph.  A basic extremal problem asks
+how large \(\ac(G)\) can be when the order and size of \(G\) are prescribed.
+
+For positive integers \(p\) and \(q\), let \(K_{p,q}\) denote the complete
+bipartite graph with vertex classes of sizes \(p\) and \(q\).
+The graph \(K_{2,n-2}\) has \(n\) vertices, \(2(n-2)\) edges, and algebraic
+connectivity \(2\), as verified in Lemma~\ref{lem:bipartite-spectrum} below.
+Kolokolnikov conjectured that no graph with the same order and size has
+larger algebraic connectivity~\cite[Conjecture~1.5]{kolokolnikov2014maximizingalgebraicconnectivitycertain}.
+Computational searches for small orders reported in the same paper support
+this conjecture.
+
+\begin{conjecture}[Kolokolnikov]
+\label{conj:kolokolnikov}
+Let \(n\ge4\).  Every finite simple graph \(G\) on \(n\) vertices
+with \(2(n-2)\) edges has \(\ac(G)\le2\), with equality attained by
+\(K_{2,n-2}\).
+\end{conjecture}
+
+Our main result proves the conjecture in full.
+
+\begin{theorem}\label{thm:main}
+Let \(n\ge4\).  Every finite simple graph \(G\) on \(n\) vertices
+with \(2(n-2)\) edges has \(\ac(G)\le2\).
+\end{theorem}
+
+\begin{samepage}
+Combining Theorem~\ref{thm:main} with
+Lemma~\ref{lem:bipartite-spectrum} gives the extremal conclusion.
+
+\begin{corollary}\label{cor:extremal}
+For every \(n\ge4\), the maximum algebraic connectivity among finite
+simple graphs on \(n\) vertices with \(2(n-2)\) edges is \(2\), and
+\(K_{2,n-2}\) is a maximizer.
+\end{corollary}
+\end{samepage}
+
+Corollary~\ref{cor:extremal} proves maximality, not uniqueness; no
+classification of the equality cases is asserted here.
+
+Previous work on algebraic-connectivity maximization with fixed order and size
+gives sufficient conditions for complete bipartite and, more generally,
+complete multipartite graphs to be extremal
+\cite{ogiwara2017maximizing,shahbaz2023algebraic}.  These criteria include
+verifications of the present conjecture through \(n=8\), but do not cover all
+orders.
+
+Shortly after the first version of this paper, two independently developed
+preprints also resolved the conjecture
+\cite{chi2026kolokolnikov,cioaba2026kolokolnikov}.  Chi, Wang, and Zheng derive
+suitably separated vertex sets with small edge boundaries in every relevant
+\(3\)-connected graph and extend their conclusion to \(e(G)\le2n-4\), whereas
+Cioab\u{a} et al.\ combine degree-excess and boundary reductions with
+Schur-complement inertia.  The proofs overlap in their use of
+Rayleigh-quotient estimates and degree-counting arguments, but differ in the
+main steps by which they rule out a counterexample.
+
+A Lean formalization of Conjecture~\ref{conj:kolokolnikov} for every
+\(n\ge4\) has been produced with MerLean \cite{li2026merleanproverrecursiveloopingharness,ren2026merleanagenticframeworkautoformalization}%
+\footnote{\url{https://github.com/MerLeanProver/MerLean}} and checked by the
+Lean kernel\footnote{\url{https://github.com/MerLeanProver/ACMaxConjecture}}.
+The present paper reorganizes that development as a self-contained
+mathematical proof.  Appendix~\ref{sec:formalization} records the formal
+verification and summarizes the MerLean system; a full account of its
+architecture and evaluation will be given separately.
+
+The proof first derives structural restrictions that apply at every order and
+then treats the remaining graphs according to their number of vertices.
+Section~\ref{sec:certificates} uses explicit Rayleigh test vectors to rule out
+several local configurations in a hypothetical counterexample.
+Section~\ref{sec:census} converts the resulting degree restrictions into
+global counting inequalities.  Section~\ref{sec:cycles} develops two
+incompatible short-cycle criteria: an exact non-backtracking Moore bound
+forces a short cycle, while a spectral argument forbids one.
+Section~\ref{sec:obstruction-closure} applies these criteria for \(n\ge48\)
+and uses a sharper degree count for \(32\le n\le49\).
+Section~\ref{sec:orders-below-thirty-two} completes the remaining orders with
+additional local and cut arguments.
+
+\section{Spectral certificates and the obstruction class}
+\label{sec:certificates}
+
+The proof proceeds by contradiction.  This section
+develops the Rayleigh-quotient certificates used to exclude vertices of
+degree \(\le2\), adjacent vertices of degree \(3\), and several other
+local configurations.  Together, these restrictions reduce a hypothetical
+counterexample to the degree-\(3\)-separated obstruction defined at the end
+of the section.
+
+Throughout the proof, \(G=(V,E)\) is a finite simple graph and \(n=|V|\).
+For \(v\in V\), write \(N(v)\) for its neighborhood,
+\(d(v)=|N(v)|\) for its degree, and
+\(\delta(G)=\min_{v\in V}d(v)\).  For \(U\subseteq V\), let
+\(N(U)=\bigcup_{v\in U}N(v)\), let \(G[U]\) be the subgraph induced by
+\(U\), and let \(e(U)\) be the number of edges with both ends in \(U\).
+If \(A,B\subseteq V\) are disjoint, then \(e(A,B)\) denotes the number of
+edges with one end in \(A\) and the other in \(B\).
+
+\subsection{Variational and separation certificates}
+
+\begin{lemma}[The extremal example]\label{lem:bipartite-spectrum}
+For every \(n\ge4\), the graph \(K_{2,n-2}\) has algebraic connectivity
+\(2\).
+\end{lemma}
+
+\begin{proof}
+Let \(U,W\) be the two vertex classes, with \(|U|=2\) and \(|W|=n-2\).
+The vectors supported on \(W\) and summing to zero form an
+\((n-3)\)-dimensional subspace of eigenvectors with eigenvalue \(2\).  The
+constant vector
+has eigenvalue \(0\); the zero-sum vectors supported on \(U\) give the
+eigenvalue \(n-2\); and the remaining one-dimensional space, consisting of
+vectors constant on each class and orthogonal to the constant vector, has
+eigenvalue \(n\).  Thus the second Laplacian eigenvalue is \(2\).
+\end{proof}
+
+By the Courant--Fischer theorem (see, for example,
+\cite{brouwerhaemers2012}), the algebraic connectivity satisfies
+\begin{equation}\label{eq:variational}
+  \ac(G)
+  =
+  \min_{\substack{x\in\mathbb{R}^{V}\setminus\{0\}\\
+                  \sum_{v\in V}x_v=0}}
+  \frac{\displaystyle\sum_{uv\in E}(x_u-x_v)^2}
+       {\displaystyle\sum_{v\in V}x_v^2}.
+\end{equation}
+Here \(x\) is one real vector indexed by the vertices of \(G\), and \(x_v\)
+is its coordinate at \(v\).  The numerator is the Dirichlet energy of
+\(x\): only edges whose endpoints receive different values contribute.
+Our certificates therefore use vectors that are constant on large vertex
+sets and change value only across controlled boundaries.
+
+In particular, any nonzero vector \(x\) with coordinate sum zero and
+\(\sum_{uv\in E}(x_u-x_v)^2\le2\sum_{v\in V}x_v^2\) certifies that
+\(\ac(G)\le2\).  We use this observation repeatedly.
+
+The following proposition isolates the Rayleigh-quotient argument used in all
+subsequent local reductions.  The set \(F\) separates two nonempty sets
+\(A\) and \(B\).  For connected \(G\), the proposition is the special case of
+a more general inequality of Liu et al.\ in which no edge joins \(A\) and
+\(B\) directly~\cite[Lemma~3.2]{liu2014}; we include the short direct proof
+in the notation used throughout this paper.
+
+\begin{proposition}[Two-cluster certificate]\label{lem:two-cluster}
+Let \(A,B\subseteq V\) be disjoint nonempty sets with no edge between
+them, and put \(F=V\setminus(A\cup B)\).  If \(e(A,F)\le2|A|\) and
+\(e(B,F)\le2|B|\), then \(\ac(G)\le2\).
+\end{proposition}
+
+\begin{proof}
+Write \(a=|A|\) and \(b=|B|\), and define
+\[
+  x_v=
+  \begin{cases}
+    b,  & v\in A,\\
+    -a, & v\in B,\\
+    0,  & v\in F.
+  \end{cases}
+\]
+Then \(\sum_v x_v=0\) and \(\sum_v x_v^2=ab(a+b)\).  There are no edges
+between \(A\) and \(B\), so the numerator is
+\(b^2e(A,F)+a^2e(B,F)\).  By the two boundary assumptions, this is
+\(\le2ab^2+2a^2b=2ab(a+b)\), twice the squared norm of \(x\), and
+\eqref{eq:variational} gives \(\ac(G)\le2\).
+\end{proof}
+
+We next record the sparse-set argument used in the first local reduction.
+For \(S\subseteq V\), put
+\[
+ I(S)=\sum_{v\in S}|N(v)\cap S|=2e(S),
+ \qquad \varepsilon(S)=\sum_{v\in S}(d(v)-3).
+\]
+
+\begin{definition}[Two-sparse set]\label{def:two-sparse}
+A nonempty set \(S\subseteq V\) is \emph{two-sparse} if
+\(|N(v)\setminus S|\le2\) for every \(v\in S\).
+\end{definition}
+
+\begin{proposition}[Sparse-set principle]\label{prop:sparse-set-principle}
+The following statements hold.
+\begin{enumerate}[label=\textup{(\roman*)}]
+  \item Two disjoint two-sparse sets with no edge between them certify
+  \(\ac(G)\le2\).
+  \item If \(\delta(G)\ge3\) and a vertex set \(S\) satisfies
+  \(I(S)>2\varepsilon(S)\), then \(S\) contains a two-sparse set.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+For (i), let the two sets be \(S,T\), and put
+\(F=V\setminus(S\cup T)\).  Two-sparsity gives
+\(e(S,F)\le2|S|\) and \(e(T,F)\le2|T|\), so
+Proposition~\ref{lem:two-cluster} applies.
+
+For (ii), suppose otherwise and start with \(T_0=S\).  As long as \(T_i\) is
+nonempty, choose \(v_i\in T_i\) with at least three neighbors outside
+\(T_i\), and put \(T_{i+1}=T_i\setminus\{v_i\}\).  The process eventually
+deletes every vertex of \(S\).  Removing \(v_i\) decreases the ordered
+internal-edge count by \(2|N(v_i)\cap T_i|\le2(d(v_i)-3)\).  Telescoping over
+the deletion sequence gives \(I(S)\le2\varepsilon(S)\), a contradiction.
+\end{proof}
+
+\subsection{Initial reductions and the degree budget}
+
+We now begin the structural reduction.  The first certificate rules out low
+degree, after which the fixed edge count supplies the degree budget used in
+the remaining local arguments.
+
+\begin{lemma}[Low-degree vertex]\label{lem:low-degree}
+Let \(u\) be a vertex of degree \(\le2\).  If
+\(T=V\setminus(\{u\}\cup N(u))\) is nonempty, then \(\ac(G)\le2\).
+\end{lemma}
+
+\begin{proof}
+Put \(t=|T|\), and set \(x_u=t\), \(x_v=-1\) for \(v\in T\), and
+\(x_v=0\) for \(v\in N(u)\).  The vector has coordinate sum zero and
+squared norm \(t^2+t\).  There are no edges from \(u\) to \(T\).  The
+contribution from edges joining \(u\) to \(N(u)\) is \(\le2t^2\), and each
+vertex of \(T\) has \(\le2\) neighbors in \(N(u)\), whose total contribution
+is \(\le2t\).  Thus the Rayleigh numerator is \(\le2(t^2+t)\), and
+\eqref{eq:variational} gives \(\ac(G)\le2\).
+\end{proof}
+
+The fixed edge count gives average degree \(4-8/n\), so degree \(4\) is
+the natural reference level.  Once minimum degree \(3\) is established,
+degree-\(3\) vertices are the only source of deficit below this level,
+while vertices of degree at least \(5\) provide the compensating excess.
+Indeed, the degree-sum identity gives
+\(\sum_{v\in V}d(v)=2|E|=4n-8\), and hence
+\begin{equation}\label{eq:total-excess}
+  \sum_{v\in V}\bigl(d(v)-3\bigr)=n-8.
+\end{equation}
+When \(\delta(G)\ge3\), every summand is nonnegative.  Under this assumption,
+we will repeatedly use the following boundary estimate.  Given a nonempty
+set \(A\), put \(F=N(A)\setminus A\) and
+\(B=V\setminus(A\cup F)\).  Every vertex of \(F\) has a neighbor in \(A\), so
+\begin{equation}\label{eq:separator-ledger}
+  e(B,F)
+  \le \sum_{w\in F}(d(w)-1)
+  =2|F|+\varepsilon(F)
+  \le2|F|+n-8-\varepsilon(A).
+\end{equation}
+
+\begin{lemma}[Adjacent degree-\(3\) vertices]\label{lem:adjacent-three}
+Assume that \(n\ge10\), that \(G\) has \(2(n-2)\) edges, and that
+\(\delta(G)\ge3\).  If two degree-\(3\) vertices are adjacent, then
+\(\ac(G)\le2\).
+\end{lemma}
+
+\begin{proof}
+Let \(A=\{u,v\}\), let \(F=N(A)\setminus A\), and put
+\(B=V\setminus(A\cup F)\).  Then \(|F|\le4\), the set \(A\) is
+two-sparse, and there is no edge from \(A\) to \(B\).  Write \(f=|F|\),
+\(b=|B|=n-2-f\), and \(q=e(B,F)\).  Since \(n\ge10\) and \(f\le4\), we
+have \(b\ge4\).  The first inequality in \eqref{eq:separator-ledger} gives
+\(q\le2f+\varepsilon(F)\), while counting degrees in \(B\) gives
+\(q+I(B)=3b+\varepsilon(B)\).
+Since \(u\) and \(v\) have zero excess,
+\(\varepsilon(F)+\varepsilon(B)=n-8\).  The two preceding bounds therefore
+imply
+\[
+ I(B)\ge3b+\varepsilon(B)-\bigl(\varepsilon(F)+2f\bigr)
+       =2\varepsilon(B)+2n+2-5f>2\varepsilon(B),
+\]
+where the last inequality uses \(n\ge10\) and \(f\le4\).
+Proposition~\ref{prop:sparse-set-principle}(ii) supplies a two-sparse set
+\(T\subseteq B\).  The sets \(A\) and \(T\) are separated, so part~(i)
+completes the proof.
+\end{proof}
+
+Suppose that \(n\ge10\) and that \(G\) is a counterexample to
+Conjecture~\ref{conj:kolokolnikov}.  If a vertex had degree \(\le2\),
+then its closed neighborhood would contain \(\le3\) vertices, so
+Lemma~\ref{lem:low-degree} would contradict \(\ac(G)>2\).  Hence
+\(\delta(G)\ge3\), and Lemma~\ref{lem:adjacent-three} then implies that
+the degree-\(3\) vertices form an independent set.  Thus every
+counterexample in this range belongs to the following obstruction class.
+
+\begin{definition}[Degree-\(3\)-separated obstruction]
+\label{def:separated-obstruction}
+A finite simple graph \(G\) on \(n\) vertices is called a
+\emph{degree-\(3\)-separated obstruction} if it has \(2(n-2)\) edges,
+\(\ac(G)>2\), \(\delta(G)\ge3\), and the set
+\(D_3(G)=\{v\in V(G):d(v)=3\}\) is independent.
+\end{definition}
+
+\subsection{Further local certificates}
+
+Having identified the obstruction class containing every possible
+counterexample, we record three further configurations excluded from it.
+The lemmas are stated under only the hypotheses they need.  Their proofs all
+follow the same pattern: the local configuration forms \(A\), its external
+neighborhood forms the separator \(F\), and the remaining vertices form
+\(B\).  Local degree information controls \(e(A,F)\) and \(|F|\), while
+\eqref{eq:separator-ledger} controls \(e(B,F)\); the two-cluster certificate
+applies once \(e(A,F)\le2|A|\) and \(e(B,F)\le2|B|\).
+
+\begin{lemma}[Star certificate]\label{lem:star}
+Assume that \(G\) has \(2(n-2)\) edges and \(\delta(G)\ge3\).  Let \(z\)
+have degree \(d\ge4\) and at least \(d-2\) distinct degree-\(3\)
+  neighbors.  If
+\(9d\le n+15\),
+then \(\ac(G)\le2\).
+\end{lemma}
+
+\begin{proof}
+Choose \(d-2\) degree-\(3\) neighbors of \(z\), call their set \(K\), and
+put \(A=\{z\}\cup K\).  Let \(F\) be the external neighborhood of \(A\)
+and \(B=V\setminus(A\cup F)\).  Since \(|A|=d-1\), and both \(z\) and each
+vertex of \(K\) have \(\le2\) edges leaving \(A\), we have
+\(e(A,F)\le2|A|\) and \(|F|\le2d-2\).
+The excess \(\varepsilon(A)\) is at least \(d-3\), so
+\eqref{eq:separator-ledger} gives
+\(e(B,F)\le2|F|+n-8-(d-3)\le n+3d-9\).  Moreover,
+\(|B|\ge n-(d-1)-(2d-2)=n-3d+3\).  The hypothesis \(9d\le n+15\) is
+equivalent to
+\(n+3d-9\le2(n-3d+3)\), and it also ensures that \(B\) is nonempty.
+Thus Proposition~\ref{lem:two-cluster} applies.
+\end{proof}
+
+\begin{lemma}[Adjacent high-degree vertices]\label{lem:decorated-edge}
+Assume that \(G\) has \(2(n-2)\) edges and \(\delta(G)\ge3\).  Let \(u,v\)
+be adjacent vertices of degrees \(d_u,d_v\ge4\), and put
+\(D=d_u+d_v\).  Suppose that
+\(K_u\subseteq N(u)\) and \(K_v\subseteq N(v)\) consist of degree-\(3\)
+vertices, with \(|K_u|=d_u-3\) and \(|K_v|=d_v-3\).  Each of the
+following conditions implies \(\ac(G)\le2\):
+\begin{enumerate}[label=\textup{(\roman*)}]
+  \item \(K_u\cap K_v=\varnothing\) and \(9D\le n+42\);
+  \item \(|K_u\cap K_v|=1\) and \(9D\le n+56\).
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+Let \(A=\{u,v\}\cup K_u\cup K_v\), let \(F\) be the external neighborhood
+of \(A\), and put \(B=V\setminus(A\cup F)\).
+
+In case (i), \(|A|=D-4\).  Each of \(u,v\), and each degree-\(3\) vertex
+in \(K_u\cup K_v\), has \(\le2\) edges leaving \(A\).  Consequently,
+\(e(A,F)\le2|A|\) and \(|F|\le2D-8\).  The excess of \(A\) is at least
+\(D-6\), so \eqref{eq:separator-ledger} gives
+\[
+ e(B,F)\le n+3D-18,
+ \qquad |B|\ge n-3D+12.
+\]
+The hypothesis \(9D\le n+42\) is exactly the comparison
+\(n+3D-18\le2(n-3D+12)\).
+
+In case (ii), \(|A|=D-5\).  The common degree-\(3\) vertex has two
+neighbors in \(A\), and therefore contributes \(\le1\), rather than
+two, to the external-edge budget.  Thus \(e(A,F)\le2|A|-1\) and
+\(|F|\le2D-11\).  Since \(\varepsilon(A)\ge D-6\),
+\eqref{eq:separator-ledger} gives
+\[
+ e(B,F)\le n+3D-24,
+ \qquad |B|\ge n-3D+16.
+\]
+Here the hypothesis \(9D\le n+56\) is exactly the comparison
+\(n+3D-24\le2(n-3D+16)\).  In both cases the numerical hypothesis also
+makes the displayed lower bound for \(|B|\) positive.  Thus
+\(e(B,F)\le2|B|\), and Proposition~\ref{lem:two-cluster} applies.
+\end{proof}
+
+\begin{lemma}[Cycle certificate]\label{lem:cycle-certificate}
+Assume that \(G\) has \(2(n-2)\) edges and \(\delta(G)\ge3\).  Let \(C\)
+be a cycle of length \(k\ge3\).  If
+\(\sum_{v\in V(C)}d(v)\le4k\) and
+\(3\sum_{v\in V(C)}(d(v)-1)\le n+8\),
+then \(\ac(G)\le2\).
+\end{lemma}
+
+\begin{proof}
+Put \(A=V(C)\), let \(F\) be the external neighborhood of \(A\), set
+\(B=V\setminus(A\cup F)\), and write
+\(D_C=\sum_{v\in A}d(v)\).  Every cycle vertex already has two
+neighbors in \(A\), and therefore \(e(A,F)\le D_C-2k\le2k=2|A|\) and
+\(|F|\le D_C-2k\).
+The excess of \(A\) is \(D_C-3k\), so \eqref{eq:separator-ledger} gives
+\(e(B,F)\le n-8+D_C-k\).  Also \(|B|\ge n+k-D_C\).  The second
+hypothesis says \(3(D_C-k)\le n+8\), which is exactly
+\(n-8+D_C-k\le2(n+k-D_C)\).
+Finally, \(D_C-k\ge2k\), so the same hypothesis implies
+\(n\ge6k-8\).  Together with \(D_C\le4k\), this gives
+\(|B|\ge n-3k\ge3k-8>0\).  The two-cluster certificate completes the
+proof.
+\end{proof}
+
+In a degree-\(3\)-separated obstruction, the \(3|D_3(G)|\) edges leaving
+\(D_3(G)\) all end at vertices of degree \(\ge4\).  The next section compares
+their number with the total degree available at those vertices, producing a
+global counting constraint and an edge-excess bound for the low-degree
+induced subgraph.
+
+\section{Census of a separated obstruction}\label{sec:census}
+
+Let \(G\) be a degree-\(3\)-separated obstruction.  Write
+\(D_3=D_3(G)\), set \(S=\{v\in V:d(v)\le4\}\), and
+\(R=V\setminus S=\{v\in V:d(v)\ge5\}\).  We call the vertices in
+\(R\) \emph{heavy}.  Write \(h=|R|\),
+\(X=\sum_{v\in R}(d(v)-4)\), and
+\(\tau(v)=|N(v)\cap D_3|\).  Thus \(X\) is the total degree excess above
+\(4\) among the vertices of degree at least \(5\), while \(\tau(v)\)
+counts the degree-\(3\) neighbors of \(v\).
+
+It is useful to count the edges leaving \(D_3\) in two ways.  From the
+\(D_3\) side, their number is fixed by \(|D_3|\); at their other endpoints,
+they must be accommodated by vertices of degree at least \(4\).  The quantity
+\(X\) plays two competing roles: it increases the number of degree-\(3\)
+vertices, but it also allows high-degree vertices to have more neighbors in
+\(D_3\).  The count compares the number of these edges with the available
+degree capacity.
+
+\subsection{Degree identities and local capacity}
+
+Splitting the degree sum into degrees \(3\), \(4\), and at least \(5\) gives
+\(4n-8=4n-|D_3|+X\).  Together with the independence of \(D_3\), this yields
+\begin{align}
+  |D_3|&=8+X,                                      \label{eq:d3-count}\\
+  \sum_{v:\,d(v)\ge4}\tau(v)&=24+3X,             \label{eq:incidence-total}\\
+  h&\le X,                                         \label{eq:h-le-X}\\
+  |S|&=n-h,                                        \notag\\
+  \sum_{v:\,d(v)\ge4}d(v)&=4n-32-3X.            \label{eq:high-degree-sum}
+\end{align}
+Indeed, the second identity counts the edges leaving \(D_3\) in two ways, the
+third and fourth follow from the definitions of \(X,h,S\), and the last
+subtracts the degree contribution \(3|D_3|=24+3X\) from \(4n-8\).
+
+Equation~\eqref{eq:incidence-total} counts the edges leaving \(D_3\).  We
+next bound the contribution of each vertex to this total.  For a vertex
+of degree at least \(4\), the star certificate controls \(\tau(v)\)
+whenever \(9d(v)\le n+15\).  We therefore call \(v\)
+\emph{exceptional} if \(9d(v)>n+15\).
+
+\begin{lemma}[Degree-\(3\)-neighbor cap and independence]\label{lem:incidence-cap}
+Let \(G\) be a degree-\(3\)-separated obstruction of order \(n\ge48\).
+\begin{enumerate}[label=\textup{(\roman*)}]
+  \item For every \(v\in V\), if \(9d(v)\le n+15\), then
+  \(\tau(v)\le d(v)-3\).
+  \item A degree-\(4\) vertex has \(\le1\) neighbor in \(D_3\).
+  \item The sets \(O=\{v:d(v)=4,\ \tau(v)=1\}\) and
+  \(P=\{v:d(v)=5,\ \tau(v)=2\}\) have the property that \(O\cup P\) is
+  independent.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+If \(d(v)=3\), then \(\tau(v)=0\) because \(D_3\) is independent.  If a
+vertex \(v\) of degree at least \(4\) satisfying \(9d(v)\le n+15\) had
+at least \(d(v)-2\) degree-\(3\) neighbors, the star certificate would
+contradict \(\ac(G)>2\).  This proves (i).  A degree-\(4\) vertex is
+nonexceptional for \(n\ge48\), so (ii) follows.
+
+It remains to prove (iii).  Suppose first that two vertices of \(O\) are
+adjacent.  If they share their unique degree-\(3\) neighbor, they lie in a
+triangle with degree pattern \((4,4,3)\), and
+Lemma~\ref{lem:cycle-certificate} applies for \(n\ge16\).  If their degree-\(3\)
+neighbors are distinct, Lemma~\ref{lem:decorated-edge}(i) applies with
+degree sum \(8\), requiring \(n\ge30\).
+
+Next suppose that a vertex of \(O\) is adjacent to a vertex of \(P\).
+A shared degree-\(3\) neighbor produces a triangle with degree pattern
+\((4,5,3)\), covered by Lemma~\ref{lem:cycle-certificate} for \(n\ge19\).
+Otherwise Lemma~\ref{lem:decorated-edge}(i) applies with degree sum \(9\)
+for \(n\ge39\).
+
+Finally, suppose that two vertices of \(P\) are adjacent.  Their sets of
+degree-\(3\) neighbors intersect in zero, one, or two vertices.  The first
+two cases are covered by parts (i) and (ii), respectively, of
+Lemma~\ref{lem:decorated-edge}, with degree sum \(10\); the corresponding
+requirements are \(n\ge48\) and \(n\ge34\).  In the last case,
+the two common degree-\(3\) neighbors and the two degree-\(5\) vertices
+form a \(4\)-cycle of degree pattern \((5,3,5,3)\), and
+Lemma~\ref{lem:cycle-certificate} applies for \(n\ge28\).  All these
+requirements hold when \(n\ge48\), so every possible adjacency in
+\(O\cup P\) contradicts \(\ac(G)>2\).
+\end{proof}
+
+For any degree-\(3\)-separated obstruction, define
+\begin{align*}
+  \tau_4&=\sum_{v:\,d(v)=4}\tau(v),&
+  p&=\bigl|\{v:d(v)=5,\ \tau(v)=2\}\bigr|,\\
+  \rho&=\bigl|\{v:d(v)\ge6,\ 9d(v)\le n+15\}\bigr|,&
+  g&=\bigl|\{v:9d(v)>n+15\}\bigr|.
+\end{align*}
+Here \(\tau_4\) records all incidences at degree \(4\).  Relative to the
+baseline \(d(v)-4\), a vertex counted by \(p\) or \(\rho\) may contribute
+one additional incidence, while the trivial bound for an exceptional
+vertex may contribute four.
+
+For an obstruction of order \(n\ge32\), two elementary estimates will be
+used in both range arguments of Section~\ref{sec:obstruction-closure}.  A
+nonexceptional vertex contributes
+\(\le d(v)-3\) to the incidence total, by the star certificate, whereas the
+trivial bound for an exceptional vertex costs three additional units.  Thus
+\begin{align}
+  24+3X
+  &\le\sum_{v:\,d(v)\ge4}(d(v)-3)+3g=n-8+3g,\notag\\
+  3X+32&\le n+3g.                    \label{eq:exceptional-hoarding}
+\end{align}
+Every exceptional vertex satisfies \(n-20\le9(d(v)-4)\) and, since
+\(n\ge32\), has degree at least \(6\).  Therefore
+\begin{equation}\label{eq:exceptional-giants}
+  g(n-20)
+  \le9\sum_{v:\,9d(v)>n+15}(d(v)-4)
+  \le9X.
+\end{equation}
+
+\subsection{Global inequalities and low-degree density}
+
+We first derive the global census inequality needed by the exact Moore
+argument.  Let the obstruction have order \(n\ge48\).  Regard \(d(v)-4\) as
+the baseline incidence contribution of each \(v\in R\).  The contribution
+beyond baseline is \(\le1\) for each vertex counted by \(p\) or \(\rho\),
+and \(\le4\) for each vertex counted by \(g\).  Thus
+\(24+3X\le X+\tau_4+p+\rho+4g\), and hence
+\begin{equation}\label{eq:slots}
+  24+2X\le\tau_4+p+\rho+4g.
+\end{equation}
+On the other hand, Lemma~\ref{lem:incidence-cap}(ii) gives
+\(|O|=\tau_4\), while \(|P|=p\) by definition.  The independence of
+\(O\cup P\) forces its members to send \(3\tau_4+3p\) edges to vertices of
+degree at least \(4\) outside the set.  Consequently,
+\(\sum_{v:\,d(v)\ge4}d(v)
+\ge(4\tau_4+5p)+(3\tau_4+3p)=7\tau_4+8p\).
+Together with \eqref{eq:high-degree-sum}, this gives
+\begin{equation}\label{eq:capacity}
+  7\tau_4+8p+3X+32\le4n.
+\end{equation}
+
+The auxiliary counts can now be eliminated to obtain the numerical
+constraint used by the Moore argument.
+
+\begin{lemma}[Moore-range census]\label{lem:moore-census}
+Let \(G\) be a degree-\(3\)-separated obstruction of order \(n\ge48\).  Then
+\begin{equation}\label{eq:moore-census}
+  10X+7h+186\le4n.
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+If \(g\ge3\), inequalities \eqref{eq:exceptional-hoarding} and
+\eqref{eq:exceptional-giants} imply
+\((g-3)n\le29g-96\).  But for \(g\ge3\),
+\(48(g-3)-(29g-96)=19g-48>0\), contradicting \(n\ge48\).  Thus \(g\le2\).
+
+Every heavy vertex contributes at least one unit to \(X\), every vertex
+counted by \(\rho\) contributes one further unit, and every exceptional
+vertex contributes three further units because it has degree at least
+\(8\).  Since the sets counted by \(\rho\) and \(g\) are disjoint,
+\begin{equation}\label{eq:heavy-ledger}
+  h+\rho+3g\le X.
+\end{equation}
+Equations \eqref{eq:slots} and \eqref{eq:capacity} give, after multiplying the
+former by \(7\) and comparing the resulting \(7\tau_4+7p\) term with the latter,
+\(17X+p\le4n-200+7\rho+28g\).  Together with
+\eqref{eq:heavy-ledger}, this yields
+\[
+  10X+7h\le17X-7\rho-21g
+  \le4n-200+7g-p\le4n-186,
+\]
+where the three comparisons use, respectively, \eqref{eq:heavy-ledger}, the
+preceding bound on \(17X+p\), and \(g\le2\) with \(p\ge0\).
+\end{proof}
+
+The second output of the global count concerns the subgraph induced by
+\(S\).  The next calculation expresses its edge excess in terms of the
+degree variables \(X\) and \(h\).
+
+\begin{lemma}[Low-degree edge excess]\label{lem:S-density}
+For a degree-\(3\)-separated obstruction, define \(t=n-4-X-3h\).
+Then
+\begin{equation}\label{eq:S-density}
+  e(S)\ge|S|+t.
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+The total degree of \(R=V\setminus S\) is \(4h+X\).  Hence
+\(e(S,R)\le4h+X\).  Since the total degree
+sum is \(4n-8\),
+\[
+\begin{aligned}
+  2e(S)
+  &=
+  \sum_{v\in S}d(v)-e(S,R)\\
+  &\ge
+  4n-8-2(4h+X)\\
+  &=
+  2(n-h)+2(n-4-X-3h)\\
+  &=
+  2|S|+2t.
+\end{aligned}
+\]
+Dividing by \(2\) proves the result.
+\end{proof}
+
+The census has therefore reduced the large-order argument to a tension between
+density and girth: \eqref{eq:S-density} supplies an edge surplus in \(G[S]\),
+while \eqref{eq:moore-census} and \(h\le X\) control its parameters.  The next
+section turns this surplus into a short cycle by an exact Moore bound and then
+uses the spectral certificates to exclude a cycle of the same length.
+
+\input{sections/moore_closure}
+\input{sections/orders_below_thirty_two}
+
+\section{Conclusion}\label{sec:conclusion}
+
+We have proved Kolokolnikov's conjecture for every \(n\ge4\).  The proof begins
+with a common spectral reduction: explicit Rayleigh test vectors rule out
+local configurations until only a rigid degree-\(3\)-separated obstruction
+remains.  Degree counting rules out this obstruction directly for
+\(32\le n\le49\), where the required incidences exceed what the higher-degree
+vertices can accommodate, and indirectly for \(n\ge48\), where an exact Moore
+bound forces a short cycle that the spectral certificates forbid.  At the
+remaining small orders, shared-hub and sparse-set arguments produce the
+required Rayleigh certificates.
+
+Since \(K_{2,n-2}\) has algebraic connectivity \(2\), it is a maximizer
+for every \(n\ge4\).  The proof does not classify all equality cases;
+determining whether other maximizers occur, and describing them when they
+do, remains a separate extremal problem.
+\appendix
+
+\section{Formalization and AI agent design}
+\label{sec:formalization}
+
+Conjecture~\ref{conj:kolokolnikov} has been formalized and proved for every
+\(n\ge4\) in the Lean~4 proof assistant~\cite{demoura2021} over the
+\emph{mathlib} library~\cite{community2019leanmathematicallibrary}, and the formal development was
+generated by \emph{MerLean} \cite{li2026merleanproverrecursiveloopingharness,ren2026merleanagenticframeworkautoformalization}, an autonomous Lean-based
+theorem-proving AI agent described below.  The canonical machine-checked
+statement reads
+
+\begin{center}
+\begin{minipage}{0.96\linewidth}
+\small
+\begin{verbatim}
+theorem ACMax.acmax_conjecture (n : ℕ) (hn : 4 ≤ n) [Nonempty (Fin n)] :
+    algConn (completeBipartiteGraph (Fin 2) (Fin (n - 2))) = 2 ∧
+      ∀ G : SimpleGraph (Fin n), G.edgeFinset.card = 2 * (n - 2) → algConn G ≤ 2
+\end{verbatim}
+\end{minipage}
+\end{center}
+
+\noindent where \texttt{algConn} denotes the algebraic connectivity
+\(\ac\), defined through the variational (Courant--Fischer)
+characterization and proved equivalent to mathlib's spectral theory.
+Lean reports that the theorem depends only on the three standard axioms
+\texttt{propext}, \texttt{Classical.choice}, and \texttt{Quot.sound};
+\texttt{native\_decide} is never invoked, so every finite computation
+is replayed by the proof kernel itself.  An independent audit with the
+\texttt{comparator} tool of the Lean
+developers\footnote{\url{https://github.com/leanprover/comparator}}
+verified the statement at the level of exported terms, enforced the
+axiom whitelist, and replayed the exported proof and all of its dependencies
+through two independent kernel implementations, both of which accept it.
+
+% TODO: Adjust the attribution and citation form for the agent system
+% before circulation.
+No part of the formal development was written by hand.
+MerLean is constructed from large-language-model agents
+(Claude Code with Fable and Opus, Anthropic) operating
+over a persistent plan graph.\footnote{\url{https://github.com/MerLeanProver/MerLean}}
+Its guiding design principle is a minimal harness: the system contains
+little hand-crafted mathematical or Lean-specific guidance, its
+capability being carried instead by its memory.  The memory core
+builds on the graph-based architecture
+Mem0\(^{g}\)~\cite{chhikara2025mem0buildingproductionreadyai}, whose node-and-edge representation
+corresponds naturally to the dependency structure of a Lean
+development, with semantic retrieval following the embedding strategy
+of LeanSearch~\cite{gao2025semanticsearchenginemathlib4}.  Compile-fix subagents prove scaffolded
+files concurrently, and a completed node is admitted to the library
+only after a fresh kernel-level check of its statement and axiom
+footprint; applied to an open question, the system first formalizes the
+statement and then pursues several independent proof strategies in
+parallel.  Every numerical certificate was cross-checked by exact
+big-integer enumeration before formalization; agent output is treated
+throughout as untrusted search, the mathematical guarantee resting
+entirely on the kernel checks above.  The system has been released as
+open source as a lightweight package intended for use in combination
+with other agent skills.
+
+The campaign took eighteen days in total and comprised \(694\) lemma
+nodes; its raw output of \(671\) Lean files (approximately
+\(240{,}000\) lines) was reduced by dependency analysis to the
+published \(427\) files and \(163{,}000\) lines.  Where per-agent
+accounting was enabled, \(214\) compile-fix invocations consumed
+\(2.5\times10^{7}\) language-model tokens and \(65\) agent-hours, an
+inference cost on the order of several hundred U.S.\ dollars at current
+API list prices; these figures are lower bounds.
+% TODO: Replace the list-price estimate with the campaign's actual
+% billing figures, which also cover the uninstrumented earlier phase.
+An earlier version of the large-order argument was subsequently condensed
+to a standalone Lean file of \(6{,}967\) lines.
+% TODO: Decide whether to publish the standalone single-file extraction
+% of the large-order proof and cite its archival location here.
+
+Every component of the mathematical proof has a formal counterpart: the
+certificate toolbox of Section~\ref{sec:certificates}, the global degree
+constraints of Section~\ref{sec:census}, the exact cycle criteria and Moore
+argument of Sections~\ref{sec:cycles} and~\ref{sec:obstruction-closure}, and
+the low-order structural arguments of
+Section~\ref{sec:orders-below-thirty-two}.  The presentation here reorganizes
+those components as one self-contained mathematical proof.
+Theorem~\ref{thm:main} is the mathematical form of the machine-checked
+theorem displayed above.
+
+\section*{Data and code availability}
+
+The formal source associated with this result is available at
+\url{https://github.com/MerLeanProver/ACMaxConjecture}.
+% TODO: Cite an immutable release, commit hash, and archival DOI in the
+% submitted version.
+No external dataset is used in this paper.
+
+% TODO: Add an acknowledgments section when its content is available.
+
+\printbibliography
+
+
+\end{document}

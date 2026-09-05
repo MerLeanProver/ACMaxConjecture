@@ -8,7 +8,7 @@ import Mathlib.Algebra.Order.Chebyshev
 This file defines **`nbTotalWalks`** — `mₖ`, the total number of length-`k` non-backtracking walks
 in a graph, summed over all ordered start/end vertex pairs.  This is the quantity fed to the
 Alon–Hoory–Linial irregular Moore bound chain; the walk-count and average-degree lemmas that consume
-it live downstream (`AHL.AHLAmGm`, `Band.Sum`, and `Band.Edge`).
+it live downstream (`AHL.AHLAmGm`, `Band.Sum`, `Band.Edge`, `AHL.AHLMoore`).
 -/
 
 namespace ACMax

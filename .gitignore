@@ -3,6 +3,13 @@
 **/.lake/
 /lakefile.olean
 
+# Paper build artifacts
+/paper/build/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
 # Editor / OS
 .DS_Store
 *.swp

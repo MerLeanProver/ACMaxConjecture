@@ -1,5 +1,4 @@
 import ACMaxConjecture.Counting.Moats
-import ACMaxConjecture.Counting.XBoundAssembly
 
 /-!
 # The bulk-credited master-cycle moat (`master_cycle_fires_sharp`)
@@ -41,7 +40,7 @@ theorem master_cycle_fires_sharp {n : ℕ} [Nonempty (Fin n)] {k n₃ : ℕ} [Ne
     (hn : 4 * (∑ i : ZMod k, G.degree (c i)) + n₃ ≤ 2 * n + 8 + 4 * k) :
     algConn G ≤ 2 := by
   classical
-  let : DecidableEq (Fin n) := Classical.decEq (Fin n)
+  letI : DecidableEq (Fin n) := Classical.decEq (Fin n)
   have hn8 : 8 ≤ n := by
     have hb : 3 * k ≤ ∑ i : ZMod k, G.degree (c i) := by
       calc 3 * k = ∑ _i : ZMod k, 3 := by

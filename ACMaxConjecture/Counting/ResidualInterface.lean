@@ -1,4 +1,4 @@
-import ACMaxConjecture.Base
+import Mathlib
 import ACMaxConjecture.Reduction.Residual
 import ACMaxConjecture.Spectral.AlgConn
 import ACMaxConjecture.Spectral.RayleighUpper
@@ -58,7 +58,6 @@ theorem each_iso_three_hubs_general {V : Type*} [Fintype V] (G : SimpleGraph V)
   rw [Finset.inter_eq_left.mpr hsub, G.card_neighborFinset_eq_degree, (hmemD t).mp htD]
 
 end ACMax
-
 
 
 /-! ## The two-hub selection engine

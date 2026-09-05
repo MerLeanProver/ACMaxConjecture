@@ -1,11 +1,11 @@
-import ACMaxConjecture.Islands.Dead
+import ACMaxConjecture.Counting.HeavyClass
 import ACMaxConjecture.Counting.V9Discharge
 
 /-!
-# B7 — the region rows for the AHL band discharge
+# Region inequalities for the exact Moore range
 
-The per-cell parameter rows consumed by the AHL band-kill assembly (B10) on a never-firing
-starved census (`m = 2(n−2)`, `δ ≥ 3`, `hs0`, `¬ algConn ≤ 2`) at `n ≥ 48`.  Notation:
+The parameter inequalities consumed by the exact non-backtracking argument on
+a degree-`3`-separated obstruction at `n ≥ 48`. Notation:
 `X = excessX n G`, `h = |V₉ᶜ|` (the heavies `deg ≥ 5`), `v = |V₉|`, `n_g` the giant count.
 
 * `giant_le_two` — the giant census `n_g ≤ 2`, from `hoarding_law` and `giant_excess_bound`.
@@ -55,7 +55,7 @@ theorem giant_le_two {n : ℕ} [Nonempty (Fin n)] (G : SimpleGraph (Fin n)) (hn 
   rw [Nat.add_sub_cancel] at hgi
   nlinarith [hgi, hho, hcon, hn]
 
-/-- **MASTER″ — the sub-1100 counting region at `n ≥ 48`.**  A never-firing starved census
+/-- **Master finite-band inequality.** A degree-`3`-separated obstruction
 (`m = 2(n−2)`, `δ ≥ 3`, `hs0`, `¬ algConn ≤ 2`) satisfies `10·X + 7·h ≤ 4·n − 186`
 (`X = excessX n G`, `h = |V₉ᶜ|`).  Assembled by `omega`: the slots row forces
 `t₄ ≥ 24 + 2X − p − h₆₊ − 4·n_g`; the choke row then gives `17X + p + 200 ≤ 4n + 7·h₆₊ + 28·n_g`;

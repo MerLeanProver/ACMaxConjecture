@@ -1,4 +1,4 @@
-import ACMaxConjecture.Base
+import Mathlib
 import ACMaxConjecture.Counting.CompactCell
 import ACMaxConjecture.Counting.DoubleStar
 import ACMaxConjecture.Counting.StarvedCensus
@@ -6,22 +6,13 @@ import ACMaxConjecture.Counting.SqrtGirth
 
 
 /-!
-# The tier-9 girth vocabulary of the starved census
+# The tier-9 girth discharge of the starved census
 
-The `V₉ = {v : deg v ≤ 4}` population (twins and sea together) and the census-free girth import
-it feeds.  On the window boundary the deg-4-only sea has excess `O(1)`, but including the twins
-turns the honest excess into `t₉ = n − 4 − X − 3h = Θ(n)` (`X = excessX`, `h = #heavies`), which
-the SQRT girth bound consumes.
-
-This module carries the vocabulary and the girth import only.  The kill itself is run twice
-downstream, at two different moat thresholds:
-
-* `Band/` runs it on the low band `64 ≤ n ≤ 122` against the kernel-`decide` side condition;
-* `Counting.V9DischargeSharp` runs it import-free for every `n ≥ 123`, at the bulk-credited
-  moat radius of `Counting.MoatSharp`.
-
-The former `n ≥ 1100` dispatch that lived here (`starved_dead_ge_1100` and its `moore_strip_arith`
-strip arithmetic) has been removed: `starved_dead_ge_123` subsumes it.
+Kills the never-firing starved census import-free for `n ≥ 388`, by a girth
+argument on the honest population `V₉ = {v : deg v ≤ 4}` (twins and sea together).
+On the window boundary the deg-4-only sea has excess `O(1)`, but including the
+twins turns the honest excess into `t₉ = n − 4 − X − 3h = Θ(n)` (`X = excessX`,
+`h = #heavies`), which the SQRT girth bound consumes.
 
 ## Main results
 
@@ -32,7 +23,15 @@ strip arithmetic) has been removed: `starved_dead_ge_123` subsumes it.
   graph has no short `V₉`-cycle.
 * `GirthExcessBound`, `girth_excess_bound_holds` — the census-free girth import and
   its unconditional proof, assembling the SQRT cluster with a component descent.
-* `starved_v9_kill_of_import` — the rebased tier-9 kill, parametric in the girth import.
+* `starved_v9_kill_of_import`, `starved_v9_kill_sqrt` — the rebased kill, with the
+  import discharged via the self-provable SQRT Moore side condition.
+* `strip_cubic`, `moore_strip_core`, `moore_strip_arith`, `starved_dead_ge_388` —
+  the import-free kill of the whole starved census for `n ≥ 388`, a single branch:
+  the derived constraint `10X + 7h ≤ 4n − 200` (`slots_p_row`,
+  `p_choke_row_unconditional`, `heavy_full_budget`) discharges the SQRT side
+  condition at the ball radius `r = ⌊(⌊(n+8)/9⌋ − 1)/2⌋`.  The former `n ≥ 1100`
+  threshold came from three separate losses in the girth bound (see
+  `GirthExcessBound`) and a `119`-fold giant credit in `heavy_full_budget`.
 -/
 
 namespace ACMax
@@ -137,95 +136,31 @@ theorem v9_density_row_quant {n : ℕ} (G : SimpleGraph (Fin n)) (hn : 2 ≤ n)
     rw [Finset.card_add_card_compl, Fintype.card_fin]
   omega
 
-/-- **N2 — the tier-9 cycle certificate.**  A census graph (`m = 2(n−2)`, `δ ≥ 3`) with an
-injective cyclic map `c : ZMod k → Fin n` (`k ≥ 3`, `c i ~ c (i+1)`) of *degree-`≤ 4`* vertices
-fires the two-cluster moat whenever `9k ≤ n + 8`.  The direct mixed deg-`3`/`4` instance of
-`master_cycle_fires`: each `deg (c i) ≤ 4` gives the tie `Σ deg (c i) ≤ 4k`, and the threshold
-`3·Σ(deg (c i) − 1) ≤ 3·(3k) = 9k ≤ n + 8`. -/
-theorem v9_short_cycle_fires {n : ℕ} [Nonempty (Fin n)] {k : ℕ} [NeZero k] (hk : 3 ≤ k)
-    (G : SimpleGraph (Fin n)) (hm : G.edgeFinset.card = 2 * (n - 2))
-    (h3 : ∀ v : Fin n, 3 ≤ G.degree v) (c : ZMod k → Fin n)
-    (hcinj : Function.Injective c) (hadj : ∀ i : ZMod k, G.Adj (c i) (c (i + 1)))
-    (hdeg : ∀ i : ZMod k, G.degree (c i) ≤ 4) (hn : 9 * k ≤ n + 8) :
-    algConn G ≤ 2 := by
-  refine master_cycle_fires hk G hm h3 c hcinj hadj ?_ ?_
-  · calc ∑ i : ZMod k, G.degree (c i)
-        ≤ ∑ _i : ZMod k, 4 := Finset.sum_le_sum (fun i _ => hdeg i)
-      _ = 4 * k := by
-          rw [Finset.sum_const, Finset.card_univ, ZMod.card, smul_eq_mul, mul_comm]
-  · have hp : (∑ i : ZMod k, (G.degree (c i) - 1)) ≤ 3 * k := by
-      calc ∑ i : ZMod k, (G.degree (c i) - 1)
-          ≤ ∑ _i : ZMod k, 3 := Finset.sum_le_sum (fun i _ => by have := hdeg i; omega)
-        _ = 3 * k := by
-            rw [Finset.sum_const, Finset.card_univ, ZMod.card, smul_eq_mul, mul_comm]
-    omega
-
-/-- **`v9_girth` — the tier-9 girth of the honest population.**  In a never-firing census
-(`m = 2(n−2)`, `δ ≥ 3`, `hnf : ¬ algConn G ≤ 2`), the population `V₉` contains *no* cycle of
-length `k` with `9k ≤ n + 8` (girth `> (n+8)/9` on `V₉`).  Any injective cyclic map into `V₉` of
-such length fires `v9_short_cycle_fires`, contradicting `hnf`. -/
-theorem v9_girth {n : ℕ} [Nonempty (Fin n)] {k : ℕ} [NeZero k]
-    (G : SimpleGraph (Fin n)) (hm : G.edgeFinset.card = 2 * (n - 2))
-    (h3 : ∀ v : Fin n, 3 ≤ G.degree v) (hnf : ¬ algConn G ≤ 2)
-    (hk : 3 ≤ k) (hkn : 9 * k ≤ n + 8) (c : ZMod k → Fin n)
-    (hcinj : Function.Injective c) (hadj : ∀ i : ZMod k, G.Adj (c i) (c (i + 1)))
-    (hmem : ∀ i : ZMod k, c i ∈ v9Set G) : False :=
-  hnf (v9_short_cycle_fires hk G hm h3 c hcinj hadj (fun i => mem_v9Set.mp (hmem i)) hkn)
-
 /-- **N3 — the census-free girth import (SW5′).**  The single graph-generic girth surface that
 replaces the falsified `AHLSeaTier9`/`AHLSeaTier18` bylines: quantified over an *arbitrary*
 *nonempty* subset `S : Finset (Fin n)` and its excess `t` (no `seaSet`, no `excessX` — nothing
 census; the `S.Nonempty` guard closes the vacuous `S = ∅, t = 0` slot where both side conditions
 hold but no cycle can land), it says a subgraph on `S` with excess `2|S| + 2t ≤ pairs(S)`
 (i.e. `e(S) ≥ |S| + t`) that also meets the
-strength-specific Moore side condition — here the self-provable **SQRT** form
-`2|S|² ≤ (L − 5)²·t` (§4.1: `girth ≤ |S|·√(2/t) + 5`) — contains a cycle of length `3 ≤ k ≤ L`
-inside `S`.  Threaded as a hypothesis and discharged externally (SQRT self-proved covers
-`n ≥ ~1071`; the tight band `55 ≤ n ≤ 476` needs the AHL strength, N8); never proved here. -/
+strength-specific Moore side condition — here the self-provable **SQRT** form, stated at the ball
+*radius* `r` rather than at a cycle-length target, as
+
+  `|S|² < |S|·(2r + 1) + t·(3r² − r)`
+
+— contains a cycle of length `3 ≤ k ≤ 2r + 1` inside `S`.  This is the exact negation of the
+`sqrt_double_count` conclusion transported from the `2`-core to `S`, so no strength is thrown away
+between the ball count and the side condition: the older shape `2|S|² ≤ (L − 5)²·t` is the same
+inequality after discarding the `|S|(2r+1)` ball term, weakening the level floor `|L_i| ≥ deg` to
+`≥ 2`, and rounding `2r ≥ L − 2` down to `L − 5`.  Recovering those three losses is what moves the
+import-free floor from `n ≥ 1071` to `n ≥ 379`.  Threaded as a hypothesis and discharged externally
+(the AHL strength, N8, reaches further down the band); never proved here. -/
 def GirthExcessBound (n : ℕ) (G : SimpleGraph (Fin n)) : Prop :=
-  ∀ (S : Finset (Fin n)) (t L : ℕ), S.Nonempty → 6 ≤ L →
+  ∀ (S : Finset (Fin n)) (t r : ℕ), S.Nonempty → 1 ≤ t → 1 ≤ r →
     2 * S.card + 2 * t ≤ ((S ×ˢ S).filter (fun q => G.Adj q.1 q.2)).card →
-    2 * S.card ^ 2 ≤ (L - 5) ^ 2 * t →
-    ∃ k : ℕ, 3 ≤ k ∧ k ≤ L ∧
+    S.card ^ 2 < S.card * (2 * r + 1) + t * (3 * r ^ 2 - r) →
+    ∃ k : ℕ, 3 ≤ k ∧ k ≤ 2 * r + 1 ∧
       ∃ c : ZMod k → Fin n, Function.Injective c ∧
         (∀ i : ZMod k, G.Adj (c i) (c (i + 1))) ∧ (∀ i : ZMod k, c i ∈ S)
-
-/-- **N4 — the rebased tier-9 kill.**  A never-firing starved census (`m = 2(n−2)`, `δ ≥ 3`) on
-`55 ≤ n` with the honest *positivity* window `X + 3·|V₉ᶜ| + 4 ≤ n` (`hpos`; its only role is
-`t₉ = n − 4 − X − 3h ≥ 0` and `V₉` nonempty — strictly weaker than the old density guard
-`4X + 4 < n`, so the whole band (b) `n ≤ 4X + 4` now enters), given the census-free girth import
-`hGEB`, cannot exist.  Assembly (mirrors `starved_tier_kill_of_AHL`, but on the honest `V₉` tier): the
-size and density rows feed the honest excess `t₉ = n − 4 − X − 3h` and the strength-specific Moore
-side condition `hMoore` to `hGEB` at `S = V₉`, producing a short `V₉`-cycle (`3 ≤ k ≤ L`,
-`9L ≤ n + 8`) that `v9_girth` forbids.  `hMoore` is the discharge N9 (SQRT form shown, covering
-`n ≥ ~1071`; the AHL strength reaches `55 ≤ n ≤ 476`), threaded not proved; `L` is the tier-9
-length target `⌊(n+8)/9⌋`. -/
-theorem starved_v9_kill_of_import {n : ℕ} [Nonempty (Fin n)] (G : SimpleGraph (Fin n))
-    (hlo : 55 ≤ n) (hm : G.edgeFinset.card = 2 * (n - 2))
-    (h3 : ∀ v : Fin n, 3 ≤ G.degree v) (hnf : ¬ algConn G ≤ 2)
-    (hpos : excessX n G + 3 * (v9Set G)ᶜ.card + 4 ≤ n)
-    (L : ℕ) (hL6 : 6 ≤ L) (hLn : 9 * L ≤ n + 8)
-    (hMoore : 2 * (v9Set G).card ^ 2
-      ≤ (L - 5) ^ 2 * (n - 4 - excessX n G - 3 * (v9Set G)ᶜ.card))
-    (hGEB : GirthExcessBound n G) : False := by
-  set t9 : ℕ := n - 4 - excessX n G - 3 * (v9Set G)ᶜ.card with ht9def
-  have hRsub : (v9Set G)ᶜ ⊆ Finset.univ.filter (fun w => 5 ≤ G.degree w) := by
-    intro v hv
-    rw [Finset.mem_compl, mem_v9Set] at hv
-    exact Finset.mem_filter.mpr ⟨Finset.mem_univ v, by omega⟩
-  have hRcard : (v9Set G)ᶜ.card ≤ excessX n G :=
-    le_trans (Finset.card_le_card hRsub) (heavy_le_excess G)
-  have hexc : 2 * (v9Set G).card + 2 * t9 ≤ v9Pairs G := by
-    have hq := v9_density_row_quant G (by omega) hm
-    rw [ht9def]
-    omega
-  have hne : (v9Set G).Nonempty := by
-    rw [← Finset.card_pos]
-    have hsize := v9_size_row G
-    omega
-  obtain ⟨k, hk3, hkL, c, hcinj, hadj, hmem⟩ := hGEB (v9Set G) t9 L hne hL6 hexc hMoore
-  have : NeZero k := ⟨by omega⟩
-  exact v9_girth G hm h3 hnf hk3 (by omega) c hcinj hadj hmem
 
 end ACMax
 
@@ -346,23 +281,15 @@ with `2|S| + 2t ≤ pairs(S)` (edge excess `t`) and the SQRT side condition `2|S
 through the two induced-graph embeddings to `G` via `cycle_walk_to_zmod`. -/
 theorem girth_excess_bound_holds (n : ℕ) (G : SimpleGraph (Fin n)) : GirthExcessBound n G := by
   classical
-  intro S t L hSne hL6 hpairs hside
+  intro S t r hSne ht1 hr1 hpairs hside
   have hScard1 : 1 ≤ S.card := Finset.card_pos.mpr hSne
-  -- The side condition forces a positive excess.
-  have ht1 : 1 ≤ t := by
-    rcases Nat.eq_zero_or_pos t with rfl | h
-    · exfalso
-      have hz : 2 * S.card ^ 2 ≤ 0 := by simpa using hside
-      have hpos : 0 < S.card ^ 2 := pow_pos hScard1 2
-      omega
-    · exact h
   -- Rewrite the pair count as the within-`S` degree sum, then extract the `2`-core.
   have hpairs' : 2 * S.card + 2 * t ≤ edgeSumWithin G S := by
     rw [edgeSumWithin_eq_pairs]; exact hpairs
   obtain ⟨S', hS'sub, hS'ne, hS'min, hS'inv⟩ := two_core_aux G ht1 S hpairs'
   set H : SimpleGraph (↥(↑S' : Set (Fin n))) := G.induce (↑S' : Set (Fin n)) with hHdef
-  have : Nonempty (↥(↑S' : Set (Fin n))) := (Finset.coe_nonempty.mpr hS'ne).to_subtype
-  have : DecidableEq H.ConnectedComponent := Classical.decEq _
+  haveI : Nonempty (↥(↑S' : Set (Fin n))) := (Finset.coe_nonempty.mpr hS'ne).to_subtype
+  haveI : DecidableEq H.ConnectedComponent := Classical.decEq _
   have hcardV' : Fintype.card (↥(↑S' : Set (Fin n))) = S'.card := by
     rw [← Set.toFinset_card, Finset.toFinset_coe]
   set NN : ℕ := Fintype.card (↥(↑S' : Set (Fin n))) with hNNdef
@@ -430,12 +357,8 @@ theorem girth_excess_bound_holds (n : ℕ) (G : SimpleGraph (Fin n)) : GirthExce
   have hmed2 : Fintype.card (C.supp : Set (↥(↑S' : Set (Fin n)))) ^ 2 * t
       ≤ NN ^ 2 * ((H.induce (C.supp : Set (↥(↑S' : Set (Fin n))))).edgeFinset.card
         - Fintype.card C.supp) := hmed
-  have : Nonempty (C.supp : Set (↥(↑S' : Set (Fin n)))) :=
+  haveI : Nonempty (C.supp : Set (↥(↑S' : Set (Fin n)))) :=
     (SimpleGraph.ConnectedComponent.nonempty_supp C).to_subtype
-  -- Set `r = ⌊(L−1)/2⌋`, so `2r + 1 ≤ L` and `L − 2 ≤ 2r`.
-  set r := (L - 1) / 2 with hrdef
-  have hr2L : 2 * r + 1 ≤ L := by omega
-  have hrL2 : L - 2 ≤ 2 * r := by omega
   -- No cycle of length `≤ 2r+1` collides with the SQRT side condition, so a short cycle exists.
   have hcyc : ∃ (u : (C.supp : Set (↥(↑S' : Set (Fin n)))))
       (w : (H.induce (C.supp : Set (↥(↑S' : Set (Fin n))))).Walk u u),
@@ -461,34 +384,58 @@ theorem girth_excess_bound_holds (n : ℕ) (G : SimpleGraph (Fin n)) : GirthExce
     -- Abbreviations for the arithmetic collision.
     set nc := Fintype.card (C.supp : Set (↥(↑S' : Set (Fin n)))) with hncval
     set ec := (H.induce (C.supp : Set (↥(↑S' : Set (Fin n))))).edgeFinset.card with hecval
+    set w : ℕ := 3 * r ^ 2 - r with hwdef
     have hncpos : 0 < nc := Fintype.card_pos
-    have hsqrt2 : 2 * (ec - nc) * r ^ 2 ≤ nc ^ 2 := le_trans (Nat.le_add_left _ _) hsqrt
-    have key1 : 2 * r ^ 2 * (nc ^ 2 * t) ≤ NN ^ 2 * nc ^ 2 := by
-      calc 2 * r ^ 2 * (nc ^ 2 * t) ≤ 2 * r ^ 2 * (NN ^ 2 * (ec - nc)) :=
-              Nat.mul_le_mul (le_refl (2 * r ^ 2)) hmed2
-        _ = NN ^ 2 * (2 * (ec - nc) * r ^ 2) := by ring
-        _ ≤ NN ^ 2 * nc ^ 2 := Nat.mul_le_mul (le_refl (NN ^ 2)) hsqrt2
-    have key2 : 2 * r ^ 2 * t ≤ NN ^ 2 := by
-      have hmul : (2 * r ^ 2 * t) * nc ^ 2 ≤ NN ^ 2 * nc ^ 2 := by
-        calc (2 * r ^ 2 * t) * nc ^ 2 = 2 * r ^ 2 * (nc ^ 2 * t) := by ring
-          _ ≤ NN ^ 2 * nc ^ 2 := key1
-      exact Nat.le_of_mul_le_mul_right hmul (pow_pos hncpos 2)
+    have hncNN : nc ≤ NN := by
+      rw [← hcard_sum]
+      exact Finset.single_le_sum (f := fun D : H.ConnectedComponent => Fintype.card D.supp)
+        (fun D _ => Nat.zero_le _) (Finset.mem_univ C)
     have hNleS : NN ≤ S.card := by
       rw [hcardV']; exact Finset.card_le_card hS'sub
-    have hfinal : (4 * r ^ 2) * t ≤ (L - 5) ^ 2 * t := by
-      calc (4 * r ^ 2) * t = 2 * (2 * r ^ 2 * t) := by ring
-        _ ≤ 2 * NN ^ 2 := by gcongr
-        _ ≤ 2 * S.card ^ 2 := by gcongr
-        _ ≤ (L - 5) ^ 2 * t := hside
-    have hfinal2 : 4 * r ^ 2 ≤ (L - 5) ^ 2 := Nat.le_of_mul_le_mul_right hfinal ht1
-    have hsq_le : (L - 2) ^ 2 ≤ 4 * r ^ 2 := by
-      calc (L - 2) ^ 2 ≤ (2 * r) ^ 2 := Nat.pow_le_pow_left hrL2 2
-        _ = 4 * r ^ 2 := by ring
-    have hcollide : (L - 2) ^ 2 ≤ (L - 5) ^ 2 := le_trans hsq_le hfinal2
-    have ha : 1 ≤ L - 5 := by omega
-    have hexpand : L - 2 = (L - 5) + 3 := by omega
-    rw [hexpand] at hcollide
-    nlinarith [hcollide, ha]
+    -- (i) Multiply the component ball count by `NN²` and feed in the mediant, so that the
+    -- component excess `ec − nc` is replaced by the global excess `t`.
+    have key1 : NN ^ 2 * (nc * (2 * r + 1)) + w * (nc ^ 2 * t) ≤ NN ^ 2 * nc ^ 2 := by
+      have hstep : w * (nc ^ 2 * t) ≤ NN ^ 2 * ((ec - nc) * w) := by
+        calc w * (nc ^ 2 * t) ≤ w * (NN ^ 2 * (ec - nc)) := Nat.mul_le_mul_left w hmed2
+          _ = NN ^ 2 * ((ec - nc) * w) := by ring
+      calc NN ^ 2 * (nc * (2 * r + 1)) + w * (nc ^ 2 * t)
+          ≤ NN ^ 2 * (nc * (1 + 2 * r)) + NN ^ 2 * ((ec - nc) * w) := by
+            have hcomm : NN ^ 2 * (nc * (2 * r + 1)) = NN ^ 2 * (nc * (1 + 2 * r)) := by ring
+            rw [hcomm]
+            exact Nat.add_le_add_left hstep _
+        _ = NN ^ 2 * (nc * (1 + 2 * r) + (ec - nc) * w) := by ring
+        _ ≤ NN ^ 2 * nc ^ 2 := Nat.mul_le_mul_left _ hsqrt
+    -- (ii) Trade one factor `NN` for `nc` in the ball term and cancel `nc²`.
+    have key2 : NN * (2 * r + 1) + t * w ≤ NN ^ 2 := by
+      have hmul : (NN * (2 * r + 1) + t * w) * nc ^ 2 ≤ NN ^ 2 * nc ^ 2 := by
+        have hswap : NN * (2 * r + 1) * nc ^ 2 ≤ NN ^ 2 * (nc * (2 * r + 1)) := by
+          have e1 : NN * (2 * r + 1) * nc ^ 2 = (nc * (2 * r + 1)) * (nc * NN) := by ring
+          have e2 : NN ^ 2 * (nc * (2 * r + 1)) = (nc * (2 * r + 1)) * (NN * NN) := by ring
+          rw [e1, e2]
+          gcongr
+        have hrest : t * w * nc ^ 2 = w * (nc ^ 2 * t) := by ring
+        calc (NN * (2 * r + 1) + t * w) * nc ^ 2
+            = NN * (2 * r + 1) * nc ^ 2 + t * w * nc ^ 2 := by ring
+          _ ≤ NN ^ 2 * (nc * (2 * r + 1)) + w * (nc ^ 2 * t) := by
+              rw [hrest]; exact Nat.add_le_add_right hswap _
+          _ ≤ NN ^ 2 * nc ^ 2 := key1
+      exact Nat.le_of_mul_le_mul_right hmul (pow_pos hncpos 2)
+    -- (iii) Transport `NN ↦ |S|`: `x ↦ x² − x(2r+1)` is monotone above `(2r+1)/2`, and `key2`
+    -- itself forces `2r + 1 ≤ NN`.
+    have hNNpos : 0 < NN := lt_of_lt_of_le hncpos hncNN
+    have h2r1 : 2 * r + 1 ≤ NN := by
+      have h : NN * (2 * r + 1) ≤ NN * NN := by
+        calc NN * (2 * r + 1) ≤ NN * (2 * r + 1) + t * w := Nat.le_add_right _ _
+          _ ≤ NN ^ 2 := key2
+          _ = NN * NN := by ring
+      exact Nat.le_of_mul_le_mul_left h hNNpos
+    have hmono : NN ^ 2 + S.card * (2 * r + 1) ≤ S.card ^ 2 + NN * (2 * r + 1) := by
+      obtain ⟨d, hd⟩ : ∃ d, S.card = NN + d := ⟨S.card - NN, by omega⟩
+      have h1 : d * (2 * r + 1) ≤ d * NN := Nat.mul_le_mul_left d h2r1
+      rw [hd]
+      nlinarith [h1]
+    -- (iv) Collide with the side condition.
+    omega
   -- Lift the short cycle from the component graph to `G` and convert to `ZMod`.
   obtain ⟨u, w, hwcyc, hwlen⟩ := hcyc
   set w1 := w.map
@@ -510,5 +457,59 @@ theorem girth_excess_bound_holds (n : ℕ) (G : SimpleGraph (Fin n)) : GirthExce
     exact hS'sub (Finset.mem_coe.mp y.2)
   obtain ⟨hk3, hex⟩ := cycle_walk_to_zmod hw2cyc hsupp
   exact ⟨w2.length, hk3, by omega, hex⟩
+
+end ACMax
+
+
+
+/-! ## The honest heavy budget
+
+The one counting row that lives here rather than in `Counting.StarvedCensus`: the heavy budget
+`h + h₆₊ + 4·n_g ≤ X`, which the `MASTER′` assembly consumes.  The `n ≥ 388` dispatch that this
+section used to carry has been superseded by `Counting.V9DischargeSharp` (`starved_dead_ge_123`),
+which runs the same collision at the bulk-credited moat radius of `Counting.MoatSharp`.
+-/
+
+namespace ACMax
+
+open Finset
+open scoped Classical
+
+/-- **The honest heavy budget** (D1′).  At `n ≥ 57` the total excess `X = excessX n G` dominates
+`h + h₆₊ + 4·n_g`, where `h = |V₉ᶜ|` counts the heavies (`deg ≥ 5`), `h₆₊` the non-giant
+deg-`≥6` hubs and `n_g` the giants (`n + 15 < 9·deg`).  Each deg-`≥5` vertex spends `deg − 4 ≥ 1`
+excess (that is `h`), each deg-`≥6` non-giant an extra `1` (so `2 ≤ deg − 4`), and each giant
+(`deg ≥ 9` already at `n ≥ 57`) an extra `4` (so `5 ≤ deg − 4`).
+
+The giant credit is `4` — exactly what the `MASTER′` assembly consumes (`28·n_g ≤ 7·4·n_g`).  It
+used to be `119`, which forced `n ≥ 1100` on this row alone and so on the whole import-free band;
+`4` costs the assembly nothing and holds from `n = 57`. -/
+theorem heavy_full_budget {n : ℕ} (G : SimpleGraph (Fin n)) (hn : 57 ≤ n) :
+    (v9Set G)ᶜ.card
+      + ((hubSet G).filter (fun h => 6 ≤ G.degree h ∧ ¬ (n + 15 < 9 * G.degree h))).card
+      + 4 * ((hubSet G).filter (fun h => n + 15 < 9 * G.degree h)).card
+      ≤ excessX n G := by
+  have hhub : hubSet G = Finset.univ.filter (fun v => 4 ≤ G.degree v) := rfl
+  have hexc : excessX n G = ∑ v ∈ hubSet G, (G.degree v - 4) := by
+    unfold excessX
+    rw [hhub]
+    refine Finset.sum_subset ?_ ?_
+    · intro v hv
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hv ⊢
+      omega
+    · intro v hv hv2
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hv hv2
+      omega
+  have hcard5 : (v9Set G)ᶜ.card = ((hubSet G).filter (fun v => 5 ≤ G.degree v)).card := by
+    congr 1
+    ext v
+    simp only [Finset.mem_compl, mem_v9Set, Finset.mem_filter, mem_hubSet]
+    omega
+  rw [hexc, hcard5, Finset.card_filter, Finset.card_filter, Finset.card_filter,
+    Finset.mul_sum, ← Finset.sum_add_distrib, ← Finset.sum_add_distrib]
+  apply Finset.sum_le_sum
+  intro v hv
+  rw [mem_hubSet] at hv
+  split_ifs <;> omega
 
 end ACMax

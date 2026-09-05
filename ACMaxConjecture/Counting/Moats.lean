@@ -1,13 +1,16 @@
-import ACMaxConjecture.Base
+import Mathlib
 import ACMaxConjecture.Spectral.AlgConn
 import ACMaxConjecture.Spectral.RayleighUpper
 import ACMaxConjecture.Spectral.TestVector
 import ACMaxConjecture.Counting.CompactCell
 import ACMaxConjecture.Counting.ResidualInterface
+import ACMaxConjecture.Reduction.GapReduction
+import ACMaxConjecture.Reduction.Reduction
 import ACMaxConjecture.Reduction.Residual
 import ACMaxConjecture.Cuts.SignedCut
 import ACMaxConjecture.Counting.Quotient
 import ACMaxConjecture.Counting.DoubleStar
+import ACMaxConjecture.Counting.CompactLedgers
 
 
 /-!
@@ -87,7 +90,7 @@ theorem medge_moat_fires {n : ℕ} [Nonempty (Fin n)] (hn : 12 ≤ n)
     (hu : G.degree u = 3) (hp : G.degree p = 3) :
     algConn G ≤ 2 := by
   classical
-  let : DecidableEq (Fin n) := Classical.decEq (Fin n)
+  letI : DecidableEq (Fin n) := Classical.decEq (Fin n)
   have hup : u ≠ p := hM.ne
   set S₁ : Finset (Fin n) := {u, p} with hS1def
   set F : Finset (Fin n) := (G.neighborFinset u ∪ G.neighborFinset p) \ S₁ with hFdef
@@ -291,7 +294,7 @@ theorem star_moat_fires {n : ℕ} [Nonempty (Fin n)]
     (hKcard : K.card = G.degree h - 2) (hfire : 9 * G.degree h ≤ n + 15) :
     algConn G ≤ 2 := by
   classical
-  let : DecidableEq (Fin n) := Classical.decEq (Fin n)
+  letI : DecidableEq (Fin n) := Classical.decEq (Fin n)
   have hdeg3 : 3 ≤ G.degree h := h3 h
   have hn8 : 8 ≤ n := by omega
   have hhK : h ∉ K := by
@@ -499,30 +502,6 @@ theorem star_moat_fires {n : ℕ} [Nonempty (Fin n)]
   refine le_trans (add_le_add hbound1 hbound2) (le_of_eq ?_)
   ring
 
-/-- **Z1 — the degree-`4` shared-hub star.**  A degree-`4` hub `h` with two distinct
-degree-`3` neighbours `t₁, t₂` fires at every `n ≥ 21`.  The twins may be adjacent to each
-other (that case only shrinks the boundary). -/
-theorem z1_star_moat_fires {n : ℕ} [Nonempty (Fin n)] (hn : 21 ≤ n)
-    (G : SimpleGraph (Fin n)) (hm : G.edgeFinset.card = 2 * (n - 2))
-    (h3 : ∀ v : Fin n, 3 ≤ G.degree v) (h t₁ t₂ : Fin n)
-    (hdh : G.degree h = 4) (ht1 : G.Adj h t₁) (ht2 : G.Adj h t₂)
-    (hd1 : G.degree t₁ = 3) (hd2 : G.degree t₂ = 3) (ht12 : t₁ ≠ t₂) :
-    algConn G ≤ 2 := by
-  refine star_moat_fires G hm h3 h {t₁, t₂} ?_ ?_ ?_ ?_
-  · intro x hx
-    rw [Finset.mem_insert, Finset.mem_singleton] at hx
-    rw [G.mem_neighborFinset]
-    rcases hx with rfl | rfl
-    · exact ht1
-    · exact ht2
-  · intro t ht
-    rw [Finset.mem_insert, Finset.mem_singleton] at ht
-    rcases ht with rfl | rfl
-    · exact hd1
-    · exact hd2
-  · rw [hdh, Finset.card_pair ht12]
-  · rw [hdh]; omega
-
 /-! ## The master-cycle kill
 
 A cycle `c : ZMod k → Fin n` (injective, cyclic adjacency) with degree-sum tie
@@ -549,7 +528,7 @@ theorem master_cycle_fires {n : ℕ} [Nonempty (Fin n)] {k : ℕ} [NeZero k] (hk
     (hn : 3 * (∑ i : ZMod k, (G.degree (c i) - 1)) ≤ n + 8) :
     algConn G ≤ 2 := by
   classical
-  let : DecidableEq (Fin n) := Classical.decEq (Fin n)
+  letI : DecidableEq (Fin n) := Classical.decEq (Fin n)
   have hn8 : 8 ≤ n := by
     have hb : 3 * k ≤ ∑ i : ZMod k, G.degree (c i) := by
       calc 3 * k = ∑ _i : ZMod k, 3 := by
@@ -827,7 +806,7 @@ theorem deco_edge_moat_fires {n : ℕ} [Nonempty (Fin n)]
     (hfire : 9 * (G.degree u + G.degree v) ≤ n + 42) :
     algConn G ≤ 2 := by
   classical
-  let : DecidableEq (Fin n) := Classical.decEq (Fin n)
+  letI : DecidableEq (Fin n) := Classical.decEq (Fin n)
   have hdeg3u : 3 ≤ G.degree u := h3 u
   have hdeg3v : 3 ≤ G.degree v := h3 v
   have hn8 : 8 ≤ n := by omega

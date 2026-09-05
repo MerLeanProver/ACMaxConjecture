@@ -90,7 +90,7 @@ theorem mem_nbWalksFrom [Fintype V] [DecidableEq V] [DecidableRel G.Adj] {x : V}
     {s : Σ v : V, G.Walk x v} :
     s ∈ nbWalksFrom G x k ↔ s.2.length = k ∧ IsNonBacktracking s.2 := by
   simp only [nbWalksFrom, mem_biUnion, mem_univ, true_and, mem_map, mem_filter,
-    mem_finsetWalkLength_iff, sigmaWalkEmb]
+    mem_finsetWalkLength_iff, sigmaWalkEmb, Function.Embedding.coeFn_mk]
   constructor
   · rintro ⟨v, p, ⟨hlen, hnb⟩, rfl⟩
     exact ⟨hlen, hnb⟩
@@ -105,7 +105,7 @@ theorem card_nbWalksFrom [Fintype V] [DecidableEq V] [DecidableRel G.Adj] (x : V
       (fun v => ((G.finsetWalkLength k x v).filter IsNonBacktracking).map (sigmaWalkEmb G x v)) := by
     intro v _ v' _ hvv
     refine Finset.disjoint_left.mpr fun s hs hs' => ?_
-    simp only [mem_map, sigmaWalkEmb] at hs hs'
+    simp only [mem_map, sigmaWalkEmb, Function.Embedding.coeFn_mk] at hs hs'
     obtain ⟨p, _, rfl⟩ := hs
     obtain ⟨p', _, hp'⟩ := hs'
     exact hvv (congrArg Sigma.fst hp').symm

@@ -1,7 +1,0 @@
-{
-    "challenge_module": "ChallengeLargeN",
-    "solution_module": "SolutionLargeN",
-    "theorem_names": ["acmax_large_n_challenge"],
-    "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"],
-    "enable_nanoda": true
-}
