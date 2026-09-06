@@ -61,7 +61,6 @@ automation:
         accompanying mathematical paper.
       cost:
         wall_time: "approximately eighteen days"
-        spend_usd: ""
         hardware: "API-based agents with local Lean builds"
   notes: >-
     Agent output was treated as untrusted proof search. Declarations were
@@ -87,9 +86,7 @@ review:
     dependency closure was manually reviewed line by line.
   notes: >-
     The formal assurance consists of successful clean builds, an axiom audit
-    of the root theorem, and an independently stated comparator harness. Final
-    author attribution, billing figures, and an immutable archival citation
-    remain project-owner metadata tasks before journal submission.
+    of the root theorem, and an independently stated comparator harness.
 
 alignment:
   namespace: "ACMax"
