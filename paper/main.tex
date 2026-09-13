@@ -76,45 +76,38 @@
 \title{Maximizing Algebraic Connectivity with \(2(n-2)\) Edges}
 
 \author{
-Zeru Zhu$^{1}$\thanks{Equal Contribution}\and
-Jinzheng Li$^{2}$\footnotemark[1] \and
-Yuanjie Ren$^{3}$\footnotemark[1] \and
-Ji Liu$^{4}$
+Zeru Zhu \and Jinzheng Li \and Yuanjie Ren \and Ji Liu
 }
 
-\date{
-\small
-$^{1}$Department of Applied Mathematics \& Statistics, Stony Brook University\\
-$^{2}$Department of Physics, Northeastern University\\
-$^{3}$Department of Physics,
-Massachusetts Institute of Technology\\
-$^{4}$Department of Electrical and Computer Engineering, Stony Brook University\\
-[0.6em] \texttt{zeru.zhu@stonybrook.edu} \quad \texttt{li.jinzh@northeastern.edu}\\ \texttt{yuanjie@mit.edu} \quad \texttt{ji.liu@stonybrook.edu}
-}
+\date{}
 
 
 \begin{document}
 
 \maketitle
+\begingroup
+\renewcommand{\thefootnote}{}
+\footnotemark
+\footnotetext{Zeru Zhu: Department of Applied Mathematics \& Statistics,
+Stony Brook University, \texttt{zeru.zhu@stonybrook.edu}; Jinzheng Li:
+Department of Physics, Northeastern University,
+\texttt{li.jinzh@northeastern.edu}; Yuanjie Ren: Department of Physics,
+Massachusetts Institute of Technology, \texttt{yuanjie@mit.edu}; Ji Liu:
+Department of Electrical and Computer Engineering, Stony Brook University,
+\texttt{ji.liu@stonybrook.edu}. The first three authors contributed equally.}
+\endgroup
+\setcounter{footnote}{0}
 
 \begin{abstract}
-Kolokolnikov conjectured that, among finite simple graphs on \(n\) vertices
+Kolokolnikov conjectured that, among all simple graphs on \(n\) vertices
 with exactly \(2(n-2)\) edges, the complete bipartite graph \(K_{2,n-2}\)
-maximizes algebraic connectivity.  We prove the conjecture for every
-\(n\ge4\): each such graph has algebraic connectivity \(\le2\), while
-\(K_{2,n-2}\) attains \(2\).  Explicit Rayleigh-quotient test vectors first
-impose strong local restrictions on a hypothetical counterexample.  For
-\(n\ge48\), degree counting and an exact non-backtracking Moore bound then
-force a short cycle that the same spectral estimates forbid.  A sharper
-incidence count handles \(32\le n\le49\), while additional local and cut
-arguments cover \(4\le n\le31\).  The underlying Lean~4 formalization was
-generated with MerLean and checked by the Lean kernel.  The present paper
-gives a self-contained mathematical account of the proof.
+maximizes algebraic connectivity.  This paper proves the conjecture.
+The underlying Lean~4 formalization was
+generated with MerLean and checked by the Lean kernel.
 \end{abstract}
 
 \noindent\textbf{Keywords.}
-Algebraic connectivity; Laplacian eigenvalue; extremal graph; Moore bound;
-formal verification; Lean; AI-assisted theorem proving.
+Algebraic connectivity; spectral graph theory; formalized mathematics; AI-assisted theorem proving.
 
 \medskip
 \noindent\textbf{MSC 2020.}
@@ -177,37 +170,32 @@ complete multipartite graphs to be extremal
 verifications of the present conjecture through \(n=8\), but do not cover all
 orders.
 
-Shortly after the first version of this paper, two independently developed
-preprints also resolved the conjecture
-\cite{chi2026kolokolnikov,cioaba2026kolokolnikov}.  Chi, Wang, and Zheng derive
-suitably separated vertex sets with small edge boundaries in every relevant
-\(3\)-connected graph and extend their conclusion to \(e(G)\le2n-4\), whereas
-Cioab\u{a} et al.\ combine degree-excess and boundary reductions with
-Schur-complement inertia.  The proofs overlap in their use of
-Rayleigh-quotient estimates and degree-counting arguments, but differ in the
-main steps by which they rule out a counterexample.
+The first version of this paper~\cite{zhu2026largeorder} gave a self-contained
+proof for \(n\ge123\) and reported a Lean formalization for every \(n\ge4\),
+while deferring a natural-language treatment of \(4\le n\le122\).  The present
+revision gives a complete self-contained mathematical proof for all \(n\ge4\).
+Three days after the first version appeared, Chi, Wang, and
+Zheng~\cite{chi2026kolokolnikov} and Cioabă et
+al.~\cite{cioaba2026kolokolnikov} posted preprints claiming complete proofs of
+the conjecture.  The three papers use different overall proof approaches.
 
-A Lean formalization of Conjecture~\ref{conj:kolokolnikov} for every
-\(n\ge4\) has been produced with MerLean \cite{li2026merleanproverrecursiveloopingharness,ren2026merleanagenticframeworkautoformalization}%
+That formalization was produced with MerLean \cite{li2026merleanproverrecursiveloopingharness,ren2026merleanagenticframeworkautoformalization}%
 \footnote{\url{https://github.com/MerLeanProver/MerLean}} and checked by the
 Lean kernel\footnote{\url{https://github.com/MerLeanProver/ACMaxConjecture}}.
-The present paper reorganizes that development as a self-contained
-mathematical proof.  Appendix~\ref{sec:formalization} records the formal
-verification and summarizes the MerLean system; a full account of its
-architecture and evaluation will be given separately.
+Appendix~\ref{sec:formalization} records the formal verification and summarizes
+the MerLean system; a full account of its architecture and evaluation will be
+given separately.
 
-The proof first derives structural restrictions that apply at every order and
-then treats the remaining graphs according to their number of vertices.
-Section~\ref{sec:certificates} uses explicit Rayleigh test vectors to rule out
-several local configurations in a hypothetical counterexample.
-Section~\ref{sec:census} converts the resulting degree restrictions into
-global counting inequalities.  Section~\ref{sec:cycles} develops two
-incompatible short-cycle criteria: an exact non-backtracking Moore bound
-forces a short cycle, while a spectral argument forbids one.
-Section~\ref{sec:obstruction-closure} applies these criteria for \(n\ge48\)
-and uses a sharper degree count for \(32\le n\le49\).
-Section~\ref{sec:orders-below-thirty-two} completes the remaining orders with
-additional local and cut arguments.
+The proof begins in Section~\ref{sec:certificates} with explicit
+Rayleigh-quotient test vectors that impose strong local restrictions on a
+hypothetical counterexample.  Section~\ref{sec:census} translates those
+restrictions into global degree and incidence inequalities.  For \(n\ge48\),
+Sections~\ref{sec:cycles} and~\ref{sec:obstruction-closure} combine these counts
+with an exact non-backtracking Moore bound to force a short cycle that the
+spectral certificates forbid.  Section~\ref{sec:obstruction-closure} also uses
+a sharper incidence count for \(32\le n\le49\), while
+Section~\ref{sec:orders-below-thirty-two} completes \(4\le n\le31\) with local
+sparse-set and cut arguments.
 
 \section{Spectral certificates and the obstruction class}
 \label{sec:certificates}
@@ -231,8 +219,7 @@ edges with one end in \(A\) and the other in \(B\).
 \subsection{Variational and separation certificates}
 
 \begin{lemma}[The extremal example]\label{lem:bipartite-spectrum}
-For every \(n\ge4\), the graph \(K_{2,n-2}\) has algebraic connectivity
-\(2\).
+For every \(n\ge4\), the graph \(K_{2,n-2}\) has algebraic connectivity~\(2\).
 \end{lemma}
 
 \begin{proof}
